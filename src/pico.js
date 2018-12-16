@@ -1,31 +1,31 @@
-export const unpack_cascade = bytes => {
+const unpack_cascade = bytes => {
 	const dview = new DataView(new ArrayBuffer(4));
-	/*
-		we skip the first 8 bytes of the cascade file
-		(cascade version number and some data used during the learning process)
-	*/
+
+	//	we skip the first 8 bytes of the cascade file
+	//	(cascade version number and some data used during the learning process)
+
 	let p = 8;
-	/*
-		read the depth (size) of each tree first: a 32-bit signed integer
-	*/
+
+	//	read the depth (size) of each tree first: a 32-bit signed integer
+
 	dview.setUint8(0, bytes[p+0])
 	dview.setUint8(1, bytes[p+1])
 	dview.setUint8(2, bytes[p+2])
 	dview.setUint8(3, bytes[p+3]);
 	const tdepth = dview.getInt32(0, true)
 	p += 4
-	/*
-		next, read the number of trees in the cascade: another 32-bit signed integer
-	*/
+
+	//	next, read the number of trees in the cascade: another 32-bit signed integer
+
 	dview.setUint8(0, bytes[p+0])
 	dview.setUint8(1, bytes[p+1])
 	dview.setUint8(2, bytes[p+2])
 	dview.setUint8(3, bytes[p+3])
 	const ntrees = dview.getInt32(0, true)
-	p +=4
-	/*
-		read the actual trees and cascade thresholds
-	*/
+	p += 4
+
+	//	read the actual trees and cascade thresholds
+
 	let tcodes = [];
 	let tpreds = [];
 	let thresh = [];
@@ -33,8 +33,8 @@ export const unpack_cascade = bytes => {
 		let i
 		// read the binary tests placed in internal tree nodes
 		Array.prototype.push.apply(tcodes, [0, 0, 0, 0])
-		Array.prototype.push.apply(tcodes, bytes.slice(p, p+4*Math.pow(2, tdepth)-4))
-		p = p + 4*Math.pow(2, tdepth)-4;
+		Array.prototype.push.apply(tcodes, bytes.slice(p, p + 4 * Math.pow(2, tdepth) - 4))
+		p = p + 4 * Math.pow(2, tdepth) - 4
 		// read the prediction in the leaf nodes of the tree
 		for(i=0; i<Math.pow(2, tdepth); ++i) {
 			dview.setUint8(0, bytes[p+0])
@@ -49,15 +49,15 @@ export const unpack_cascade = bytes => {
 		dview.setUint8(1, bytes[p+1])
 		dview.setUint8(2, bytes[p+2])
 		dview.setUint8(3, bytes[p+3]);
-		thresh.push(dview.getFloat32(0, true));
-		p = p + 4;
+		thresh.push(dview.getFloat32(0, true))
+		p = p + 4
 	}
 	tcodes = new Int8Array(tcodes)
 	tpreds = new Float32Array(tpreds)
 	thresh = new Float32Array(thresh)
-	/*
-		construct the classification function from the read data
-	*/
+
+	//	construct the classification function from the read data
+
 	function classify_region(r, c, s, pixels, ldim) {
 		 r = 256 * r
 		 c = 256 * c
@@ -65,13 +65,13 @@ export const unpack_cascade = bytes => {
 		 var o = 0.0
 		 var pow2tdepth = Math.pow(2, tdepth) >> 0; // '>>0' transforms this number to int
 
-		 for(var i=0; i<ntrees; ++i) {
+		 for(var i=0; i < ntrees; ++i) {
 			var idx = 1
-			for(var j=0; j<tdepth; ++j)
+			for(var j=0; j < tdepth; ++j)
 				// we use '>> 8' here to perform an integer division: this seems important for performance
 				idx = 2*idx + (pixels[((r+tcodes[root + 4*idx + 0]*s) >> 8)*ldim+((c+tcodes[root + 4*idx + 1]*s) >> 8)]<=pixels[((r+tcodes[root + 4*idx + 2]*s) >> 8)*ldim+((c+tcodes[root + 4*idx + 3]*s) >> 8)]);
 
-			 	o = o + tpreds[pow2tdepth*i + idx-pow2tdepth];
+			 	o = o + tpreds[pow2tdepth * i + idx - pow2tdepth];
 
 			 if (o <= thresh[i]) return -1
 
@@ -86,7 +86,7 @@ let facefinder_classify_region  = (r, c, s, pixels, ldim) => -1.0
 const update_memory = instantiate_detection_memory(5)
 
 export const picoInit = () => {
-	var cascadeurl = 'https://raw.githubusercontent.com/nenadmarkus/pico/c2e81f9d23cc11d1a612fd21e4f9de0921a5d0d9/rnt/cascades/facefinder';
+	var cascadeurl = 'https://raw.githubusercontent.com/nenadmarkus/pico/c2e81f9d23cc11d1a612fd21e4f9de0921a5d0d9/rnt/cascades/facefinder'
 
 	fetch(cascadeurl)
   		.then(response => {
@@ -94,12 +94,12 @@ export const picoInit = () => {
 	  		.then(buffer => {
 				var bytes = new Int8Array(buffer)
 				facefinder_classify_region = unpack_cascade(bytes)
-				console.log('* cascade loaded');
+				console.log('* cascade loaded')
 		  })
 	})
 }
 
-export const run_cascade = (image, classify_region, params) => {
+const run_cascade = (image, classify_region, params) => {
 	var pixels = image.pixels;
 	var nrows = image.nrows;
 	var ncols = image.ncols;
@@ -130,29 +130,29 @@ export const run_cascade = (image, classify_region, params) => {
     return detections;
 }
 
-export const cluster_detections = (dets, iouthreshold) => {
-	/*
-		sort detections by their score
-	*/
+const cluster_detections = (dets, iouthreshold) => {
+
+	//	sort detections by their score
+
 	dets = dets.sort(function(a, b) {
 		return b[3] - a[3];
 	})
-	/*
-		this helper function calculates the intersection over union for two detections
-	*/
+
+	//	this helper function calculates the intersection over union for two detections
+
 	function calculate_iou(det1, det2) {
 		// unpack the position and size of each detection
-		var r1=det1[0], c1=det1[1], s1=det1[2];
-		var r2=det2[0], c2=det2[1], s2=det2[2];
+		var r1 = det1[0], c1 = det1[1], s1 = det1[2]
+		var r2 = det2[0], c2 = det2[1], s2 = det2[2]
 		// calculate detection overlap in each dimension
-		var overr = Math.max(0, Math.min(r1+s1/2, r2+s2/2) - Math.max(r1-s1/2, r2-s2/2));
-		var overc = Math.max(0, Math.min(c1+s1/2, c2+s2/2) - Math.max(c1-s1/2, c2-s2/2));
+		var overr = Math.max(0, Math.min(r1 + s1 / 2, r2 + s2 / 2) - Math.max(r1 - s1 / 2, r2 - s2 / 2))
+		var overc = Math.max(0, Math.min(c1 + s1 / 2, c2 + s2 / 2) - Math.max(c1 - s1 / 2, c2 - s2 / 2))
 		// calculate and return IoU
-		return overr*overc/(s1*s1+s2*s2-overr*overc);
+		return overr * overc / (s1 * s1 + s2 * s2 - overr * overc)
 	}
-	/*
-		do clustering through non-maximum suppression
-	*/
+
+	//	do clustering through non-maximum suppression
+
 	var assignments = new Array(dets.length).fill(0);
 	var clusters = [];
 	for(var i=0; i<dets.length; ++i) {
@@ -178,48 +178,48 @@ export const cluster_detections = (dets, iouthreshold) => {
 }
 
 function instantiate_detection_memory(size) {
-	/*
-		initialize a circular buffer of `size` elements
-	*/
+
+//	initialize a circular buffer of `size` elements
+
 	var n = 0, memory = [];
 	for(var i = 0; i < size; ++i)
 		memory.push([]);
-	/*
-		build a function that:
-		(1) inserts the current frame's detections into the buffer;
-		(2) merges all detections from the last `size` frames and returns them
-	*/
+
+	//	build a function that:
+	//	(1) inserts the current frame's detections into the buffer;
+	//	(2) merges all detections from the last `size` frames and returns them
+
 	function update_memory(dets) {
 		memory[n] = dets;
-		n = (n+1) % memory.length;
+		n = (n + 1) % memory.length;
 		dets = [];
 		for(i = 0; i < memory.length; ++i)
 			dets = dets.concat(memory[i]);
 		//
 		return dets;
 	}
-	/*
-		we're done
-	*/
+
 	return update_memory;
 }
 
-/*
-	(2) define a function to transform an RGBA image to grayscale
-*/
+//	(2) define a function to transform an RGBA image to grayscale
 
-export const rgba_to_grayscale = (rgba, nrows, ncols) => {
+const rgba_to_grayscale = (rgba, nrows, ncols) => {
 	var gray = new Uint8Array(nrows * ncols);
 	for(var r=0; r<nrows; ++r)
 		for(var c=0; c<ncols; ++c)
 			// gray = 0.2*red + 0.7*green + 0.1*blue
-			gray[r*ncols + c] = (2*rgba[r*4*ncols+4*c+0]+7*rgba[r*4*ncols+4*c+1]+1*rgba[r*4*ncols+4*c+2])/10;
-	return gray;
+			gray[r * ncols + c] = (
+				2 * 
+				rgba[r * 4 * ncols + 4 * c + 0] + 7 * 
+				rgba[r * 4 * ncols + 4 * c + 1] + 1 * 
+				rgba[r * 4 * ncols + 4 * c + 2]
+				) / 10
+
+	return gray
 }
 
-/*
-	(3) this function is called each time a video frame becomes available
-*/
+//	(3) this function is called each time a video frame becomes available
 
 export const processfn = (ctx) => {
     let dets
