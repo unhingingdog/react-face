@@ -13,6 +13,7 @@ export default class App extends Component {
 
 
     this.state = { 
+      detectionActive: true,
       faceData: {},
       faceScale: 1, 
       first: null,
@@ -20,7 +21,7 @@ export default class App extends Component {
     }
   }
 
-  draw = () => {
+  detect = () => {
     window.requestAnimationFrame(() => {
       this.ctx = this.canvas.getContext('2d')
 
@@ -32,12 +33,8 @@ export default class App extends Component {
         this.CANVAS_HEIGHT
       )
       
-      console.time('recog')
       const picoFaceData = pico.processfn(this.ctx, this.baseFaceSize * this.state.faceScale)
       let faceData = {}
-      console.timeEnd('recog')
-      console.log(this.baseFaceSize * this.state.faceScale)
-
 
       if (picoFaceData[0] && picoFaceData[0][0]) {
         faceData.y = picoFaceData[0][0]
@@ -103,7 +100,11 @@ export default class App extends Component {
 		
 		pico.picoInit()
 
-    setInterval(() => this.draw(), 100)
+    if (this.state.detectionActive) this.detect()
+  }
+
+  componentDidUpdate() {
+    if (this.state.detectionActive) this.detect()
   }
 
   render() {
