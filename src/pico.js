@@ -206,8 +206,8 @@ function instantiate_detection_memory(size) {
 
 const rgba_to_grayscale = (rgba, nrows, ncols) => {
 	var gray = new Uint8Array(nrows * ncols);
-	for(var r=0; r<nrows; ++r)
-		for(var c=0; c<ncols; ++c)
+	for(var r = 0; r < nrows; ++r)
+		for(var c = 0; c < ncols; ++c)
 			// gray = 0.2*red + 0.7*green + 0.1*blue
 			gray[r * ncols + c] = (
 				2 * 
@@ -221,7 +221,7 @@ const rgba_to_grayscale = (rgba, nrows, ncols) => {
 
 //	(3) this function is called each time a video frame becomes available
 
-export const processfn = (ctx) => {
+export const processfn = ctx => {
     let dets
 	// render the video frame to the canvas element and extract RGBA pixel data
 	var rgba = ctx.getImageData(0, 0, 640, 480).data;
