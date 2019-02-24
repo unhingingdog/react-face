@@ -221,7 +221,7 @@ const rgba_to_grayscale = (rgba, nrows, ncols) => {
 
 //	(3) this function is called each time a video frame becomes available
 
-export const processfn = ctx => {
+export const processfn = (ctx, minFaceSize) => {
     let dets
 	// render the video frame to the canvas element and extract RGBA pixel data
 	var rgba = ctx.getImageData(0, 0, 640, 480).data;
@@ -234,7 +234,7 @@ export const processfn = ctx => {
 	}
 	const params = {
 		"shiftfactor": 0.1, // move the detection window by 10% of its size
-		"minsize": 100,     // minimum size of a face
+		"minsize": minFaceSize,     // minimum size of a face
 		"maxsize": 1000,    // maximum size of a face
 		"scalefactor": 1.1  // for multiscale processing: resize the detection window by 10% when moving to the higher scale
 	}

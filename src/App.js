@@ -4,67 +4,94 @@ import * as pico from './pico'
 export default class App extends Component {
   constructor(props) {
     super(props)
-    this.state = { 
-      faceData: {}, 
-      first: null,
-      resolution: 1,
-      width: 0,
-      height: 0
-    }
 
     this.ctx = null
     this.video = document.createElement("video")
-    this.maxWidth = 800
-    this.maxHeight = 600
+    this.CANVAS_WIDTH = 800
+    this.CANVAS_HEIGHT = 600
+    this.baseFaceSize = 100
+
+
+    this.state = { 
+      faceData: {},
+      faceScale: 1, 
+      first: null,
+      height: this.maxHeight
+    }
   }
 
   draw = () => {
     window.requestAnimationFrame(() => {
       this.ctx = this.canvas.getContext('2d')
+
       this.ctx.drawImage(
         this.video,
         0,
         0,
-        this.state.width || this.maxWidth,
-        this.state.height || this.maxHeight
+        this.CANVAS_WIDTH,
+        this.CANVAS_HEIGHT
       )
-
-      const picoFaceData = pico.processfn(this.ctx)
+      
+      console.time('recog')
+      const picoFaceData = pico.processfn(this.ctx, this.baseFaceSize * this.state.faceScale)
       let faceData = {}
+      console.timeEnd('recog')
+      console.log(this.baseFaceSize * this.state.faceScale)
+
 
       if (picoFaceData[0] && picoFaceData[0][0]) {
-        faceData.top = picoFaceData[0][0]
-        faceData.left = picoFaceData[0][1]
+        faceData.y = picoFaceData[0][0]
+        faceData.x = picoFaceData[0][1]
         faceData.magnitude = picoFaceData[0][2]
         faceData.probability = picoFaceData[0][3]
       }
 
-      if (faceData.probability > 400) {
-        this.ctx.beginPath();
-        this.ctx.arc(faceData.left, faceData.top, faceData.magnitude / 2, 0, 2*Math.PI, false);
-        this.ctx.lineWidth = 3;
-        this.ctx.strokeStyle = 'red';
-        this.ctx.stroke();
+      const { faceScale } = this.state
+
+      let newFaceScale = faceScale
+      let color
+
+      if (faceData.probability > 800) {
+        newFaceScale = faceScale * 1.1
+        color = 'green'
       }
 
+      if (faceData.probability < 800 && faceData.probability > 600) {
+        newFaceScale = faceScale * 1.01
+        color = 'orange'
+      }
 
+      if (faceData.probability < 600 && faceData.probability > 500) {
+        newFaceScale = faceScale * 1.005
+        color = 'orange'
+      }
+
+      if (faceData.probability < 500 && faceData.probability > 400) {
+        newFaceScale = Math.max(faceScale * 0.995, 0.1)
+        color = 'red'
+      }
+
+      if (faceData.probability < 500 && faceData.probability > 200) {
+        newFaceScale = Math.max(faceScale * 0.99, 0.1)
+        color = 'red'
+      }
+
+      if (faceData.probability < 200) {
+        newFaceScale = Math.max(faceScale * 0.98, 0.1)
+        color = 'purple'
+      }
+
+      this.ctx.beginPath();
+      this.ctx.arc(faceData.x, faceData.y, faceData.magnitude, 0, 2 * Math.PI, false);
+      this.ctx.lineWidth = 3;
+      this.ctx.strokeStyle = color;
+      this.ctx.stroke();
 
       this.setState(() => ({ 
         faceData,
-        width: this.maxWidth * this.state.resolution,
-        height: this.maxHeight * this.state.resolution
+        faceScale: newFaceScale,
       }))
     })
-  }
-
-  mapFaceLocation = (left, top) => {
-    const widthPercent = this.width / 100
-    const heightPercent = this.height / 100
-
-    const leftPercent =  100 - (left / widthPercent)
-    const topPercent = top / heightPercent
-
-
   }
 
   async componentDidMount() {
@@ -76,37 +103,18 @@ export default class App extends Component {
 		
 		pico.picoInit()
 
-    setInterval(() => this.draw(), 20)
+    setInterval(() => this.draw(), 100)
   }
 
   render() {
-     const magnitude = this.state.faceData.magnitude ? this.state.faceData.magnitude : 50
-     const left = this.state.faceData.left ? this.state.faceData.left : 50
-     const top = this.state.faceData.top ? this.state.faceData.top : 50
-
     return (
       <div className="App">
         <header className="App-header" style={{ display: 'flex' }}>
-          <div style={{ background: 'white', height: 200, width: 200 }}>
-            <div style={{ 
-              background: 'coral', 
-              height: magnitude, 
-              width: magnitude, 
-              borderRadius: magnitude / 2, 
-              marginLeft: left, 
-              marginTop: top 
-            }}></div>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <h4>{this.state.faceData.top}</h4>
-            <h4>{this.state.faceData.left}</h4>
-            <h4>{this.state.faceData.magnitude}</h4>
-            <h4>{this.state.faceData.probability}</h4>
-          </div>
           <canvas 
             ref={ref => this.canvas = ref} 
-            width={this.state.width}
-            height={this.state.height} 
+            width={this.CANVAS_WIDTH}
+            height={this.CANVAS_HEIGHT} 
+            style={{ display: 'absolute' }}
           />
         </header>
       </div>
