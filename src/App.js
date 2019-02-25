@@ -8,7 +8,6 @@ export default class App extends Component {
 
     this.ctx = null
     this.video = document.createElement("video")
-
     this.baseFaceSize = 100
 
     this.state = { 
@@ -93,7 +92,7 @@ export default class App extends Component {
           } else {
             newCanvasSizeIndex = Math.min(
               newCanvasSizeIndex + 1,
-              100
+              500
             )
             newNoFaceFrames = 0
           }
@@ -173,6 +172,14 @@ export default class App extends Component {
       })
     }
   }
+
+  // shouldComponentUpdate(_, nextState) {
+  //   if (this.state.noFaceFrames > 3) {
+  //     return JSON.stringify(nextState.facesData[0]) !== 
+  //     JSON.stringify(this.state.facesData[0])
+  //   }
+  //   return true
+  // }
 
   render() {
     // const [width, height] = this.canvasSizes[this.state.currentCanvasSizeIndex]
