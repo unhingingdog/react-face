@@ -160,7 +160,7 @@ const cluster_detections = (dets, iouthreshold) => {
 		if(assignments[i] == 0) {
 			// it is not:
 			// now we make a cluster out of it and see whether some other detections belong to it
-			var r=0.0, c=0.0, s=0.0, q=0.0, n=0;
+			var r = 0.0, c = 0.0, s = 0.0, q = 0.0, n = 0;
 			for(var j = i; j < dets.length; ++j)
 				if(calculate_iou(dets[i], dets[j])>iouthreshold) {
 					assignments[j] = 1;
@@ -171,7 +171,7 @@ const cluster_detections = (dets, iouthreshold) => {
 					n = n + 1;
 				}
 			// make a cluster representative
-			clusters.push([r/n, c/n, s/n, q]);
+			clusters.push([r / n, c / n, s / n, q]);
 		}
 	}
 	return clusters;
@@ -221,16 +221,16 @@ const rgba_to_grayscale = (rgba, nrows, ncols) => {
 
 //	(3) this function is called each time a video frame becomes available
 
-export const processfn = (ctx, minFaceSize) => {
+export const processfn = (ctx, minFaceSize, height, width) => {
     let dets
 	// render the video frame to the canvas element and extract RGBA pixel data
-	var rgba = ctx.getImageData(0, 0, 640, 480).data;
+	var rgba = ctx.getImageData(0, 0, width, height).data;
 	// prepare input to `run_cascade`
 	const image = {
-		"pixels": rgba_to_grayscale(rgba, 480, 640),
-		"nrows": 480,
-		"ncols": 640,
-		"ldim": 640
+		"pixels": rgba_to_grayscale(rgba, height, width),
+		"nrows": height,
+		"ncols": width,
+		"ldim": width
 	}
 	const params = {
 		"shiftfactor": 0.1, // move the detection window by 10% of its size

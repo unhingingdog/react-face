@@ -8,36 +8,35 @@ export default class App extends Component {
 
     this.ctx = null
     this.video = document.createElement("video")
-    this.CANVAS_WIDTH = 400
-    this.CANVAS_HEIGHT = 300
-    this.canvasSizes = [
-      [600, 450],
-      [800, 600]
-    ]
 
     this.baseFaceSize = 100
 
-
     this.state = { 
-      currentCanvasSizeIndex: 1,
+      currentCanvasSizeIndex: 100,
       detectionActive: true,
       facesData: {},
       faceScale: 1, 
       first: null,
       height: this.maxHeight,
-      noFaceFrames: 0
+      noFaceFrames: 0,
+      highFaceFrames: 0,
+      testPosition: 1
     }
   }
 
   detect = () => {
-      console.time('detect')
-      this.ctx = this.canvas.getContext('2d')
-      const [width, height] = this.canvasSizes[this.state.currentCanvasSizeIndex]
+      const width = 4 * this.state.currentCanvasSizeIndex
+      const height = 3 * this.state.currentCanvasSizeIndex
+      this.canvas.width = width
+      this.canvas.height = height
       this.ctx.drawImage(this.video, 0, 0, width, height)
       
       const detectedFacesData = pico.processfn(
-        this.ctx, this.baseFaceSize * this.state.faceScale
-      ).filter(face => face[3] > 50)
+        this.ctx, 
+        this.baseFaceSize * this.state.faceScale,
+        height,
+        width
+      ).filter(face => face[3] > 200)
       let newFacesData = []
       let bestDetectionData = [0, 0]
 
@@ -59,25 +58,44 @@ export default class App extends Component {
         })
       }
 
-      const { faceScale, currentCanvasSizeIndex, noFaceFrames } = this.state
+      const { 
+        faceScale, 
+        currentCanvasSizeIndex, 
+        noFaceFrames,
+        highFaceFrames 
+      } = this.state
 
       let newCanvasSizeIndex = currentCanvasSizeIndex
       let newNoFaceFrames = noFaceFrames
+      let newHighFaceFrames = highFaceFrames
       const [bestDetection] = bestDetectionData
-      let newFaceScale = Math.max(calculateFaceSizeScale(bestDetection), 0.1) 
+      let newFaceScale = Math.max(calculateFaceSizeScale(bestDetection), 0.01) 
         || faceScale
 
 
-      if (bestDetection > 200) {
-          newCanvasSizeIndex = 0
+      if (bestDetection > 300) {
+        if (newHighFaceFrames < 5) {
+          newHighFaceFrames = newHighFaceFrames + 1
+        } else {
+          newCanvasSizeIndex = Math.max(
+            newCanvasSizeIndex - 1,
+            10
+          )
+          newHighFaceFrames = 0
+        }
+      } else {
+        newHighFaceFrames = 0
       }
-      console.log('BEST DETECTION', bestDetection)
 
       if (!newFacesData.length) {
-          if (newNoFaceFrames < 30) {
+          if (newNoFaceFrames < 2) {
             newNoFaceFrames = newNoFaceFrames + 1
           } else {
-            newCanvasSizeIndex = this.canvasSizes.length - 1
+            newCanvasSizeIndex = Math.min(
+              newCanvasSizeIndex + 1,
+              100
+            )
+            newNoFaceFrames = 0
           }
       } else {
         newNoFaceFrames = 0
@@ -91,13 +109,13 @@ export default class App extends Component {
         this.ctx.stroke();
       })
 
-      this.setState(() => ({ 
-        facesData: newFacesData,
-        faceScale: newFaceScale,
-        currentCanvasSizeIndex: newCanvasSizeIndex,
-        noFaceFrames: newNoFaceFrames
-      }))
-    console.timeEnd('detect')
+      return { 
+        newFacesData,
+        newFaceScale,
+        newCanvasSizeIndex,
+        newNoFaceFrames,
+        newHighFaceFrames
+      }
   }
 
   async componentDidMount() {
@@ -105,30 +123,79 @@ export default class App extends Component {
       .mediaDevices.getUserMedia({ video: true, audio: false })
 
     this.video.srcObject = stream
-		this.video.play()
+    this.video.play()
+    this.ctx = this.canvas.getContext('2d')
 		
 		pico.picoInit()
 
-    if (this.state.detectionActive) this.detect()
+    if (this.state.detectionActive) {
+      window.requestAnimationFrame(() => {
+        const { 
+          newFacesData,
+          newFaceScale,
+          newCanvasSizeIndex,
+          newNoFaceFrames,
+          newHighFaceFrames
+        } = this.detect()
+
+        this.setState(() => ({ 
+          facesData: newFacesData,
+          faceScale: newFaceScale,
+          currentCanvasSizeIndex: newCanvasSizeIndex,
+          noFaceFrames: newNoFaceFrames,
+          highFaceFrames: newHighFaceFrames
+        }))
+      })
+    }
   }
 
   componentDidUpdate() {
-    if (this.state.detectionActive) window.requestIdleCallback(this.detect)
+    if (this.state.detectionActive) {
+      window.requestAnimationFrame(() => {
+        console.time('x')
+        const { 
+          newFacesData,
+          newFaceScale,
+          newCanvasSizeIndex,
+          newNoFaceFrames,
+          newHighFaceFrames
+        } = this.detect()
+
+        this.setState(() => ({ 
+          facesData: newFacesData,
+          faceScale: newFaceScale,
+          currentCanvasSizeIndex: newCanvasSizeIndex,
+          noFaceFrames: newNoFaceFrames,
+          highFaceFrames: newHighFaceFrames,
+          testPosition: (this.state.testPosition + 1) % 500
+        }))
+        console.timeEnd('x')
+      })
+    }
   }
 
   render() {
-    const [width, height] = this.canvasSizes[this.state.currentCanvasSizeIndex]
+    // const [width, height] = this.canvasSizes[this.state.currentCanvasSizeIndex]
+    const width = 4 * this.state.currentCanvasSizeIndex
+    const height = 3 * this.state.currentCanvasSizeIndex
 
     return (
       <div className="App">
-        <header className="App-header" style={{ display: 'flex' }}>
+        <header className="App-header" style={{ display: 'flex', flexDirection: 'column' }}>
           <canvas 
             ref={ref => this.canvas = ref} 
-            width={width}
-            height={height} 
             style={{ display: 'absolute' }}
           />
-          <h1>{this.canvasSizes[this.state.currentCanvasSizeIndex]}</h1>
+          <div
+            style={{
+              position: 'absolute',
+              width: 20,
+              height: 20,
+              background: 'goldenrod',
+              top: 500,
+              transform: `translate(${this.state.testPosition}px, 0px)`
+            }}
+          ></div>
         </header>
       </div>
     )
