@@ -1,5 +1,6 @@
 import React, { Component } from 'react';
 import * as pico from './pico'
+import calculateFaceSizeScale from './calculateFaceSizeScale'
 
 export default class App extends Component {
   constructor(props) {
@@ -10,10 +11,6 @@ export default class App extends Component {
     this.CANVAS_WIDTH = 400
     this.CANVAS_HEIGHT = 300
     this.canvasSizes = [
-      // [160, 120],
-      // [200, 150],
-      // [240, 180],
-      // [400, 300],
       [600, 450],
       [800, 600]
     ]
@@ -33,7 +30,7 @@ export default class App extends Component {
   }
 
   detect = () => {
-    window.requestAnimationFrame(() => {
+      console.time('detect')
       this.ctx = this.canvas.getContext('2d')
       const [width, height] = this.canvasSizes[this.state.currentCanvasSizeIndex]
       this.ctx.drawImage(this.video, 0, 0, width, height)
@@ -42,7 +39,7 @@ export default class App extends Component {
         this.ctx, this.baseFaceSize * this.state.faceScale
       ).filter(face => face[3] > 50)
       let newFacesData = []
-      let bestDetection = [0, 0]
+      let bestDetectionData = [0, 0]
 
       if (detectedFacesData.length) {
         detectedFacesData.map((detectedFaceData, index) => {
@@ -51,11 +48,11 @@ export default class App extends Component {
 
           newFaceData.y = y
           newFaceData.x = x
-          newFaceData.size = size
-          newFaceData.strength = strength * 0.65
+          newFaceData.size = size * 0.65
+          newFaceData.strength = strength
 
-          if (bestDetection[0] < strength) {
-            bestDetection = [strength, index]
+          if (bestDetectionData[0] < strength) {
+            bestDetectionData = [strength, index]
           }
 
           newFacesData.push(newFaceData)
@@ -64,38 +61,17 @@ export default class App extends Component {
 
       const { faceScale, currentCanvasSizeIndex, noFaceFrames } = this.state
 
-      let newFaceScale = faceScale
       let newCanvasSizeIndex = currentCanvasSizeIndex
       let newNoFaceFrames = noFaceFrames
+      const [bestDetection] = bestDetectionData
+      let newFaceScale = Math.max(calculateFaceSizeScale(bestDetection), 0.1) 
+        || faceScale
 
-      if (bestDetection[0] > 900) {
+
+      if (bestDetection > 200) {
           newCanvasSizeIndex = 0
       }
-
-      if (bestDetection[0] < 900 && bestDetection[0] > 700) {
-        newCanvasSizeIndex = Math.min(newCanvasSizeIndex, 0)
-        newFaceScale = faceScale * 1.02
-      }
-
-      if (bestDetection[0] < 700 && bestDetection > 600) {
-        newFaceScale = faceScale * 1.01
-      }
-
-      if (bestDetection[0] < 600 && bestDetection > 500) {
-        newFaceScale = faceScale * 1.005
-      }
-
-      if (bestDetection[0] < 500 && bestDetection > 400) {
-        newFaceScale = Math.max(faceScale * 0.995, 0.1)
-      }
-
-      if (bestDetection[0] < 500 && bestDetection > 200) {
-        newFaceScale = Math.max(faceScale * 0.99, 0.1)
-      }
-
-      if (bestDetection[0] < 200) {
-        newFaceScale = Math.max(faceScale * 0.98, 0.1)
-      }
+      console.log('BEST DETECTION', bestDetection)
 
       if (!newFacesData.length) {
           if (newNoFaceFrames < 30) {
@@ -121,7 +97,7 @@ export default class App extends Component {
         currentCanvasSizeIndex: newCanvasSizeIndex,
         noFaceFrames: newNoFaceFrames
       }))
-    })
+    console.timeEnd('detect')
   }
 
   async componentDidMount() {
@@ -137,7 +113,7 @@ export default class App extends Component {
   }
 
   componentDidUpdate() {
-    if (this.state.detectionActive) this.detect()
+    if (this.state.detectionActive) window.requestIdleCallback(this.detect)
   }
 
   render() {
