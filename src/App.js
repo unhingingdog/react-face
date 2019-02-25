@@ -7,86 +7,119 @@ export default class App extends Component {
 
     this.ctx = null
     this.video = document.createElement("video")
-    this.CANVAS_WIDTH = 800
-    this.CANVAS_HEIGHT = 600
+    this.CANVAS_WIDTH = 400
+    this.CANVAS_HEIGHT = 300
+    this.canvasSizes = [
+      // [160, 120],
+      // [200, 150],
+      // [240, 180],
+      // [400, 300],
+      [600, 450],
+      [800, 600]
+    ]
+
     this.baseFaceSize = 100
 
 
     this.state = { 
+      currentCanvasSizeIndex: 1,
       detectionActive: true,
-      faceData: {},
+      facesData: {},
       faceScale: 1, 
       first: null,
-      height: this.maxHeight
+      height: this.maxHeight,
+      noFaceFrames: 0
     }
   }
 
   detect = () => {
     window.requestAnimationFrame(() => {
       this.ctx = this.canvas.getContext('2d')
-
-      this.ctx.drawImage(
-        this.video,
-        0,
-        0,
-        this.CANVAS_WIDTH,
-        this.CANVAS_HEIGHT
-      )
+      const [width, height] = this.canvasSizes[this.state.currentCanvasSizeIndex]
+      this.ctx.drawImage(this.video, 0, 0, width, height)
       
-      const picoFaceData = pico.processfn(this.ctx, this.baseFaceSize * this.state.faceScale)
-      let faceData = {}
+      const detectedFacesData = pico.processfn(
+        this.ctx, this.baseFaceSize * this.state.faceScale
+      ).filter(face => face[3] > 50)
+      let newFacesData = []
+      let bestDetection = [0, 0]
 
-      if (picoFaceData[0] && picoFaceData[0][0]) {
-        faceData.y = picoFaceData[0][0]
-        faceData.x = picoFaceData[0][1]
-        faceData.magnitude = picoFaceData[0][2]
-        faceData.probability = picoFaceData[0][3]
+      if (detectedFacesData.length) {
+        detectedFacesData.map((detectedFaceData, index) => {
+          const newFaceData = {}
+          const [y, x, size, strength] = detectedFaceData
+
+          newFaceData.y = y
+          newFaceData.x = x
+          newFaceData.size = size
+          newFaceData.strength = strength * 0.65
+
+          if (bestDetection[0] < strength) {
+            bestDetection = [strength, index]
+          }
+
+          newFacesData.push(newFaceData)
+        })
       }
 
-      const { faceScale } = this.state
+      const { faceScale, currentCanvasSizeIndex, noFaceFrames } = this.state
 
       let newFaceScale = faceScale
-      let color
+      let newCanvasSizeIndex = currentCanvasSizeIndex
+      let newNoFaceFrames = noFaceFrames
 
-      if (faceData.probability > 800) {
-        newFaceScale = faceScale * 1.1
-        color = 'green'
+      if (bestDetection[0] > 900) {
+          newCanvasSizeIndex = 0
       }
 
-      if (faceData.probability < 800 && faceData.probability > 600) {
+      if (bestDetection[0] < 900 && bestDetection[0] > 700) {
+        newCanvasSizeIndex = Math.min(newCanvasSizeIndex, 0)
+        newFaceScale = faceScale * 1.02
+      }
+
+      if (bestDetection[0] < 700 && bestDetection > 600) {
         newFaceScale = faceScale * 1.01
-        color = 'orange'
       }
 
-      if (faceData.probability < 600 && faceData.probability > 500) {
+      if (bestDetection[0] < 600 && bestDetection > 500) {
         newFaceScale = faceScale * 1.005
-        color = 'orange'
       }
 
-      if (faceData.probability < 500 && faceData.probability > 400) {
+      if (bestDetection[0] < 500 && bestDetection > 400) {
         newFaceScale = Math.max(faceScale * 0.995, 0.1)
-        color = 'red'
       }
 
-      if (faceData.probability < 500 && faceData.probability > 200) {
+      if (bestDetection[0] < 500 && bestDetection > 200) {
         newFaceScale = Math.max(faceScale * 0.99, 0.1)
-        color = 'red'
       }
 
-      if (faceData.probability < 200) {
+      if (bestDetection[0] < 200) {
         newFaceScale = Math.max(faceScale * 0.98, 0.1)
-        color = 'purple'
       }
 
-      this.ctx.beginPath();
-      this.ctx.arc(faceData.x, faceData.y, faceData.magnitude, 0, 2 * Math.PI, false);
-      this.ctx.lineWidth = 3;
-      this.ctx.strokeStyle = color;
-      this.ctx.stroke();
+      if (!newFacesData.length) {
+          if (newNoFaceFrames < 30) {
+            newNoFaceFrames = newNoFaceFrames + 1
+          } else {
+            newCanvasSizeIndex = this.canvasSizes.length - 1
+          }
+      } else {
+        newNoFaceFrames = 0
+      }
+
+      newFacesData.map(face => {
+        this.ctx.beginPath();
+        this.ctx.arc(face.x, face.y, face.size, 0, 2 * Math.PI, false);
+        this.ctx.lineWidth = 3;
+        this.ctx.strokeStyle = face.strength < 100 ? 'red' : 'aqua';
+        this.ctx.stroke();
+      })
 
       this.setState(() => ({ 
-        faceData,
+        facesData: newFacesData,
         faceScale: newFaceScale,
+        currentCanvasSizeIndex: newCanvasSizeIndex,
+        noFaceFrames: newNoFaceFrames
       }))
     })
   }
@@ -108,15 +141,18 @@ export default class App extends Component {
   }
 
   render() {
+    const [width, height] = this.canvasSizes[this.state.currentCanvasSizeIndex]
+
     return (
       <div className="App">
         <header className="App-header" style={{ display: 'flex' }}>
           <canvas 
             ref={ref => this.canvas = ref} 
-            width={this.CANVAS_WIDTH}
-            height={this.CANVAS_HEIGHT} 
+            width={width}
+            height={height} 
             style={{ display: 'absolute' }}
           />
+          <h1>{this.canvasSizes[this.state.currentCanvasSizeIndex]}</h1>
         </header>
       </div>
     )
