@@ -20,33 +20,26 @@ export default class App extends Component {
       noFaceFrames: 0,
       highFaceFrames: 0,
       detectionTimes: new Array(60).fill(0),
+      drawTimes: new Array(60).fill(0),
       framesSinceUpdate: 0,
-      splitRenderMode: true,
-      splitRenderPhase: 0,
       testPosition: 1
     }
   }
 
   updateCanvas = () => {
-    const width = 4 * this.state.currentCanvasSizeIndex
-    const height = 3 * this.state.currentCanvasSizeIndex
+    const width = this.state.currentCanvasSizeIndex * 4
+    const height = this.state.currentCanvasSizeIndex * 3
     this.canvas.width = Math.floor(width)
     this.canvas.height = Math.floor(height)
     this.ctx.drawImage(this.video, 0, 0, width, height)
   }
 
   detect = () => {
-        const width = 4 * this.state.currentCanvasSizeIndex
-        const height = 3 * this.state.currentCanvasSizeIndex
-        this.canvas.width = Math.floor(width)
-        this.canvas.height = Math.floor(height)
-        this.ctx.drawImage(this.video, 0, 0, width, height)
-      
       const detectedFacesData = pico.processfn(
         this.ctx, 
         this.baseFaceSize * this.state.faceScale,
-        height,
-        width
+        this.state.currentCanvasSizeIndex * 3,
+        this.state.currentCanvasSizeIndex * 4
       ).filter(face => face[3] > 15)
 
       let newFacesData = []
@@ -89,10 +82,7 @@ export default class App extends Component {
         if (newHighFaceFrames < 5) {
           newHighFaceFrames = newHighFaceFrames + 1
         } else {
-          newCanvasSizeIndex = Math.max(
-            newCanvasSizeIndex - 2,
-            10
-          )
+          newCanvasSizeIndex = newCanvasSizeIndex - 2
           newHighFaceFrames = 0
         }
       } else {
@@ -141,7 +131,9 @@ export default class App extends Component {
 		pico.picoInit()
 
     if (this.state.detectionActive) {
-      window.requestIdleCallback(deadline => {
+      window.requestIdleCallback(() => {
+        this.updateCanvas()
+
         const { 
           newFacesData,
           newFaceScale,
@@ -159,13 +151,68 @@ export default class App extends Component {
         }))
       })
     }
+
+    this.moveTestThing()
   }
+
+  shouldSplitRender = timeRemaining => {
+    const { drawTimes, detectionTimes } = this.state
+    const averageLast5Draws = drawTimes
+      .slice(55)
+      .reduce((a, c) => a + c) / 5
+
+    const averageLast5Detections = detectionTimes
+      .slice(55)
+      .reduce((a, c) => a + c) / 5
+
+    return (averageLast5Draws + averageLast5Detections) < timeRemaining
+  } 
 
   componentDidUpdate() {
     if (this.state.detectionActive) {
-      window.requestAnimationFrame(() => {
-        const detectionStart = performance.now()
+      window.requestIdleCallback(deadline => {
 
+        if (!this.shouldSplitRender(deadline.timeRemaining())) {
+          const drawStart = performance.now()
+          this.updateCanvas()
+          const drawEnd = performance.now()
+          window.requestAnimationFrame(() => {
+            const detectionStart = performance.now()
+            const { 
+              newFacesData,
+              newFaceScale,
+              newCanvasSizeIndex,
+              newNoFaceFrames,
+              newHighFaceFrames
+            } = this.detect()
+
+            const detectionEnd = performance.now()
+    
+            this.setState(() => ({ 
+              facesData: newFacesData,
+              faceScale: newFaceScale,
+              currentCanvasSizeIndex: newCanvasSizeIndex,
+              noFaceFrames: newNoFaceFrames,
+              highFaceFrames: newHighFaceFrames,
+              detectionTimes: this.updatePerformanceQueue(
+                detectionStart, detectionEnd, this.state.detectionTimes
+              ),
+              drawTimes: this.updatePerformanceQueue(
+                drawStart, drawEnd, this.state.drawTimes
+              ),
+              framesSinceUpdate: 0,
+              testPosition: (this.state.testPosition + 2) % 1000
+            }))
+
+            return
+          })
+        }
+
+        const drawStart = performance.now()
+        this.updateCanvas()
+        const drawEnd = performance.now()
+
+        const detectionStart = performance.now()
         const { 
           newFacesData,
           newFaceScale,
@@ -173,41 +220,56 @@ export default class App extends Component {
           newNoFaceFrames,
           newHighFaceFrames
         } = this.detect()
-
         const detectionEnd = performance.now()
 
+        const update = performance.now()
         this.setState(() => ({ 
           facesData: newFacesData,
           faceScale: newFaceScale,
           currentCanvasSizeIndex: newCanvasSizeIndex,
           noFaceFrames: newNoFaceFrames,
           highFaceFrames: newHighFaceFrames,
-          detectionTimes: this.updateDetectionTimes(detectionStart, detectionEnd),
+          detectionTimes: this.updatePerformanceQueue(
+            detectionStart, detectionEnd, this.state.detectionTimes
+          ),
+          drawTimes: this.updatePerformanceQueue(
+            drawStart, drawEnd, this.state.drawTimes
+          ),
           framesSinceUpdate: 0,
-          testPosition: (this.state.testPosition + 2) % 1000
         }))
       })
     }
   }
 
-  updateDetectionTimes = (detectionStart, detectionEnd) => {
-    const { detectionTimes } = this.state
+  updatePerformanceQueue = (detectionStart, detectionEnd, queue) => {
+    queue.push(detectionEnd - detectionStart)
+    if (queue.length > 60) queue.shift()
 
-    detectionTimes.push(detectionEnd - detectionStart)
-    if (detectionTimes.length > 60) detectionTimes.shift()
+    return queue
+  }
 
-    return detectionTimes
+  moveTestThing = () => {
+    requestAnimationFrame(() => {
+      this.setState(() => ({
+        testPosition: (this.state.testPosition + 1) % 1000
+      }))
+
+      this.moveTestThing()
+    })
   }
 
   render() {
+    const detections = this.state.detectionTimes.reduce((acc, n) => acc + n) / 60
+    const draws = this.state.drawTimes.reduce((acc, n) => acc + n) / 60
+
     return (
       <div className="App">
         <header className="App-header" style={{ display: 'flex', flexDirection: 'column' }}>
           <canvas 
             ref={ref => this.canvas = ref} 
-            style={{ display: 'absolute' }}
+            style={{ display: 'relative' }}
           />
-          <h1>{this.state.detectionTimes.reduce((acc, n) => acc + n) / 60}</h1>
+          <h1>{draws.toFixed(1) + ' ' + detections.toFixed(1) + ' ' + (draws + detections).toFixed(1)}</h1>
           <div
             style={{
               position: 'absolute',
