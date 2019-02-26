@@ -19,6 +19,8 @@ export default class App extends Component {
       height: this.maxHeight,
       noFaceFrames: 0,
       highFaceFrames: 0,
+      detectionTimes: new Array(60).fill(0),
+      framesSinceUpdate: 0,
       testPosition: 1
     }
   }
@@ -35,7 +37,8 @@ export default class App extends Component {
         this.baseFaceSize * this.state.faceScale,
         height,
         width
-      ).filter(face => face[3] > 200)
+      ).filter(face => face[3] > 15)
+
       let newFacesData = []
       let bestDetectionData = [0, 0]
 
@@ -77,7 +80,7 @@ export default class App extends Component {
           newHighFaceFrames = newHighFaceFrames + 1
         } else {
           newCanvasSizeIndex = Math.max(
-            newCanvasSizeIndex - 1,
+            newCanvasSizeIndex - 2,
             10
           )
           newHighFaceFrames = 0
@@ -91,8 +94,8 @@ export default class App extends Component {
             newNoFaceFrames = newNoFaceFrames + 1
           } else {
             newCanvasSizeIndex = Math.min(
-              newCanvasSizeIndex + 1,
-              500
+              newCanvasSizeIndex + 2,
+              200
             )
             newNoFaceFrames = 0
           }
@@ -151,7 +154,8 @@ export default class App extends Component {
   componentDidUpdate() {
     if (this.state.detectionActive) {
       window.requestAnimationFrame(() => {
-        console.time('x')
+        const detectionStart = performance.now()
+
         const { 
           newFacesData,
           newFaceScale,
@@ -160,32 +164,32 @@ export default class App extends Component {
           newHighFaceFrames
         } = this.detect()
 
+        const detectionEnd = performance.now()
+
         this.setState(() => ({ 
           facesData: newFacesData,
           faceScale: newFaceScale,
           currentCanvasSizeIndex: newCanvasSizeIndex,
           noFaceFrames: newNoFaceFrames,
           highFaceFrames: newHighFaceFrames,
-          testPosition: (this.state.testPosition + 1) % 500
+          detectionTimes: this.updateDetectionTimes(detectionStart, detectionEnd),
+          framesSinceUpdate: 0,
+          testPosition: (this.state.testPosition + 2) % 1000
         }))
-        console.timeEnd('x')
       })
     }
   }
 
-  // shouldComponentUpdate(_, nextState) {
-  //   if (this.state.noFaceFrames > 3) {
-  //     return JSON.stringify(nextState.facesData[0]) !== 
-  //     JSON.stringify(this.state.facesData[0])
-  //   }
-  //   return true
-  // }
+  updateDetectionTimes = (detectionStart, detectionEnd) => {
+    const { detectionTimes } = this.state
+
+    detectionTimes.push(detectionEnd - detectionStart)
+    if (detectionTimes.length > 60) detectionTimes.shift()
+
+    return detectionTimes
+  }
 
   render() {
-    // const [width, height] = this.canvasSizes[this.state.currentCanvasSizeIndex]
-    const width = 4 * this.state.currentCanvasSizeIndex
-    const height = 3 * this.state.currentCanvasSizeIndex
-
     return (
       <div className="App">
         <header className="App-header" style={{ display: 'flex', flexDirection: 'column' }}>
@@ -193,6 +197,7 @@ export default class App extends Component {
             ref={ref => this.canvas = ref} 
             style={{ display: 'absolute' }}
           />
+          <h1>{this.state.detectionTimes.reduce((acc, n) => acc + n) / 60}</h1>
           <div
             style={{
               position: 'absolute',

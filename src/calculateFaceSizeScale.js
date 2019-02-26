@@ -1,5 +1,6 @@
 export default detectionStrength => {
     const s = detectionStrength
+
     if (s > 1000) {
         return 1.1
     } else if (s < 1000 && s > 900) {
