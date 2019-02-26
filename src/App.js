@@ -21,16 +21,26 @@ export default class App extends Component {
       highFaceFrames: 0,
       detectionTimes: new Array(60).fill(0),
       framesSinceUpdate: 0,
+      splitRenderMode: true,
+      splitRenderPhase: 0,
       testPosition: 1
     }
   }
 
+  updateCanvas = () => {
+    const width = 4 * this.state.currentCanvasSizeIndex
+    const height = 3 * this.state.currentCanvasSizeIndex
+    this.canvas.width = Math.floor(width)
+    this.canvas.height = Math.floor(height)
+    this.ctx.drawImage(this.video, 0, 0, width, height)
+  }
+
   detect = () => {
-      const width = 4 * this.state.currentCanvasSizeIndex
-      const height = 3 * this.state.currentCanvasSizeIndex
-      this.canvas.width = width
-      this.canvas.height = height
-      this.ctx.drawImage(this.video, 0, 0, width, height)
+        const width = 4 * this.state.currentCanvasSizeIndex
+        const height = 3 * this.state.currentCanvasSizeIndex
+        this.canvas.width = Math.floor(width)
+        this.canvas.height = Math.floor(height)
+        this.ctx.drawImage(this.video, 0, 0, width, height)
       
       const detectedFacesData = pico.processfn(
         this.ctx, 
@@ -90,7 +100,7 @@ export default class App extends Component {
       }
 
       if (!newFacesData.length) {
-          if (newNoFaceFrames < 2) {
+          if (newNoFaceFrames < 3) {
             newNoFaceFrames = newNoFaceFrames + 1
           } else {
             newCanvasSizeIndex = Math.min(
@@ -126,12 +136,12 @@ export default class App extends Component {
 
     this.video.srcObject = stream
     this.video.play()
-    this.ctx = this.canvas.getContext('2d')
+    this.ctx = this.canvas.getContext('2d', { alpha: false })
 		
 		pico.picoInit()
 
     if (this.state.detectionActive) {
-      window.requestAnimationFrame(() => {
+      window.requestIdleCallback(deadline => {
         const { 
           newFacesData,
           newFaceScale,
