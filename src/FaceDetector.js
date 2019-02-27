@@ -275,14 +275,16 @@ export default class FaceDetector extends Component {
         newNoFaceFrames = 0
       }
 
-      newFacesData.map(face => {
-        this.ctx.beginPath();
-        this.ctx.arc(face.x, face.y, face.size / 2, 0, 2 * Math.PI, false);
-        this.ctx.lineWidth = 3;
-        this.ctx.strokeStyle = face.strength < 100 ? 'red' : 'aqua';
-        this.ctx.stroke();
-      })
-
+      if (this.props.children) {
+        newFacesData.map(face => {
+          this.ctx.beginPath();
+          this.ctx.arc(face.x, face.y, face.size / 2, 0, 2 * Math.PI, false);
+          this.ctx.lineWidth = 3;
+          this.ctx.strokeStyle = face.strength < 100 ? 'red' : 'aqua';
+          this.ctx.stroke();
+        })
+      }
+      
       return { 
         newFacesData,
         newFaceScale,
