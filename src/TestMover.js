@@ -4,24 +4,30 @@ export default class TestMover extends Component {
     constructor(props) {
         super(props)
 
-        this.state = { position: this.props.startPosition }
+        this.state = { 
+            position: this.props.startPosition
+        }
+        this.ref = React.createRef()
     }
 
     componentDidMount() {
-        window.requestAnimationFrame(() => this.setState(() => ({ position: (this.state.position + 1) % 500}))) 
+        const current = this.ref.current.style.transform.split('').filter(n => (/[0-9]/.test(n))).join('').substr(0,2)
+        setTimeout(() => this.setState(() => ({ position: (current + this.props.inc) % 1000})), 1000) 
     }
 
     componentDidUpdate() {
-        window.requestAnimationFrame(() => this.setState(() => ({ position: (this.state.position + 1) % 500 }))) 
+        setTimeout(() => this.setState(() => ({ position: (this.state.position + this.props.inc) % 1000 })), 1000) 
     }
 
     render() {
         return(
             <div
+                ref={this.ref}
                 style={{
-                    width: 5,
-                    height: 5,
+                    width: 20,
+                    height: 20,
                     transform: `translate(${this.state.position}px, 0px)`,
+                    transition: 'transform 1s linear',
                     willChange: 'transform',
                     background: 'coral',
                     top: 500
