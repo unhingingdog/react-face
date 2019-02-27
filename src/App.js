@@ -5,7 +5,13 @@ import TestMover from './TestMover'
 const App = props => {
     return (
         <React.Fragment>
-            <FaceDetector />
+            <FaceDetector>
+                {facesData => 
+                    <ul>
+                        {facesData.map(face => <li>{face.x + ' ' + face.y}</li>)}
+                    </ul>
+                }
+            </FaceDetector>
             <TestMover startPosition={0} inc={60} />
             <TestMover startPosition={20} inc={60} />
             <TestMover startPosition={40} inc={60} />

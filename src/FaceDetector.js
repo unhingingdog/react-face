@@ -77,6 +77,8 @@ export default class FaceDetector extends Component {
             } = this.detect()
 
             const detectionEnd = performance.now()
+
+            console.log(newFacesData)
     
             requestIdleCallback(deadline =>
               this.setState(() => ({ 
@@ -136,17 +138,45 @@ export default class FaceDetector extends Component {
   render() {
     const detections = this.state.detectionTimes.reduce((acc, n) => acc + n) / 60
     const draws = this.state.drawTimes.reduce((acc, n) => acc + n) / 60
+    const { facesData } = this.state
+    // console.log(facesData)
+    const relativeFacesData = facesData.length ? 
+      facesData.map(face => this.relativeFaceLocation(face)) :
+      [{x: null, y: null, size: null, strength: null}]
 
     return (
       <div className="App" style={{ display: 'flex', flexDirection: 'column' }}>
-        <div style={{ width: 600, height: 450 }}>
+        <div style={{ width: 600, height: 450, display: this.props.children ? 'none' : 'relative' }}>
           <canvas 
             ref={ref => this.canvas = ref} 
           />
         </div>
-        <h1>{draws.toFixed(1) + ' ' + detections.toFixed(1) + ' ' + (draws + detections).toFixed(1)}</h1>
+        {this.props.children && this.props.children(relativeFacesData)}
       </div>
     )
+  }
+
+  relativeFaceLocation = (faceData) => {
+    const { currentCanvasSizeIndex: canvasSize } = this.state
+    const widthIndex = canvasSize * 4 / 100
+    const heightIndex = canvasSize * 3 / 100
+
+    if (faceData && faceData.x) {
+      let { x, y, size, strength } = faceData
+
+      size = Math.round(size / widthIndex)
+      y = Math.round(y / heightIndex) 
+      x = Math.round(x / widthIndex)
+
+      y = y < 50 ? y - (size / 2) : y + (size / 2)
+      x = 100 - (x < 50 ? x - (size / 2) : x + (size / 2))
+
+      x = Math.min(Math.max(x, 0), 100)
+      y = Math.min(Math.max(y, 0), 100)
+      
+      strength = Math.round(strength)
+      return {x, y, size, strength}
+    } 
   }
 
   updatePerformanceQueue = (detectionStart, detectionEnd, queue) => {
@@ -195,7 +225,7 @@ export default class FaceDetector extends Component {
 
           newFaceData.y = y
           newFaceData.x = x
-          newFaceData.size = size * 0.65
+          newFaceData.size = size
           newFaceData.strength = strength
 
           if (bestDetectionData[0] < strength) {
@@ -247,7 +277,7 @@ export default class FaceDetector extends Component {
 
       newFacesData.map(face => {
         this.ctx.beginPath();
-        this.ctx.arc(face.x, face.y, face.size, 0, 2 * Math.PI, false);
+        this.ctx.arc(face.x, face.y, face.size / 2, 0, 2 * Math.PI, false);
         this.ctx.lineWidth = 3;
         this.ctx.strokeStyle = face.strength < 100 ? 'red' : 'aqua';
         this.ctx.stroke();
