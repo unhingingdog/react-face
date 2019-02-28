@@ -60,27 +60,26 @@ export default class FaceDetector extends Component {
 
   componentDidUpdate() {
     if (this.state.detectionActive) {
-      window.requestIdleCallback(deadline => {
+      requestAnimationFrame(() =>
+        requestIdleCallback(deadline => {
+          if (!this.shouldSplitRender(deadline.timeRemaining())) {
+            const drawStart = performance.now()
+            this.updateCanvas()
+            const drawEnd = performance.now()
+            requestIdleCallback(deadline2 => {
+              const detectionStart = performance.now()
+              const { 
+                newFacesData,
+                newFaceScale,
+                newCanvasSizeIndex,
+                newNoFaceFrames,
+                newHighFaceFrames
+              } = this.detect()
 
-        if (!this.shouldSplitRender(deadline.timeRemaining())) {
-          const drawStart = performance.now()
-          this.updateCanvas()
-          const drawEnd = performance.now()
-          window.requestIdleCallback(() => {
-            const detectionStart = performance.now()
-            const { 
-              newFacesData,
-              newFaceScale,
-              newCanvasSizeIndex,
-              newNoFaceFrames,
-              newHighFaceFrames
-            } = this.detect()
-
-            const detectionEnd = performance.now()
-
-            console.log(newFacesData)
-    
-            requestIdleCallback(deadline =>
+              const detectionEnd = performance.now()
+              console.log(deadline2.timeRemaining())
+              // console.log(deadline.timeRemaining())
+      
               this.setState(() => ({ 
                 facesData: newFacesData,
                 faceScale: newFaceScale,
@@ -95,27 +94,25 @@ export default class FaceDetector extends Component {
                 ),
                 framesSinceUpdate: 0
               }))
-            )
 
-            return
-          })
-        }
+              return
+            })
+          }
 
-        const drawStart = performance.now()
-        this.updateCanvas()
-        const drawEnd = performance.now()
+          const drawStart = performance.now()
+          this.updateCanvas()
+          const drawEnd = performance.now()
 
-        const detectionStart = performance.now()
-        const { 
-          newFacesData,
-          newFaceScale,
-          newCanvasSizeIndex,
-          newNoFaceFrames,
-          newHighFaceFrames
-        } = this.detect()
-        const detectionEnd = performance.now()
+          const detectionStart = performance.now()
+          const { 
+            newFacesData,
+            newFaceScale,
+            newCanvasSizeIndex,
+            newNoFaceFrames,
+            newHighFaceFrames
+          } = this.detect()
+          const detectionEnd = performance.now()
 
-        requestAnimationFrame(() =>
           this.setState(() => ({ 
             facesData: newFacesData,
             faceScale: newFaceScale,
@@ -130,8 +127,8 @@ export default class FaceDetector extends Component {
             ),
             framesSinceUpdate: 0,
           }))
-        )
-      })
+        })
+      )
     }
   }
 
@@ -189,14 +186,14 @@ export default class FaceDetector extends Component {
   shouldSplitRender = timeRemaining => {
     const { drawTimes, detectionTimes } = this.state
     const averageLast5Draws = drawTimes
-      .slice(55)
-      .reduce((a, c) => a + c) / 5
+      .slice(58)
+      .reduce((a, c) => a + c) / 2
 
     const averageLast5Detections = detectionTimes
-      .slice(55)
-      .reduce((a, c) => a + c) / 5
+      .slice(58)
+      .reduce((a, c) => a + c) / 2
 
-    return (averageLast5Draws + averageLast5Detections) < timeRemaining
+    return (averageLast5Draws + averageLast5Detections) < (timeRemaining)
   } 
 
   updateCanvas = () => {
