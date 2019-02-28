@@ -33,7 +33,9 @@ export default class FaceDetector extends Component {
     this.video.play()
     this.ctx = this.canvas.getContext('2d', { alpha: false })
 		
-		pico.picoInit()
+    pico.picoInit()
+    
+    // setTimeout(() => this.setState({ detectionActive: false }), 5000)
 
     if (this.state.detectionActive) {
       window.requestIdleCallback(() => {
@@ -58,52 +60,45 @@ export default class FaceDetector extends Component {
     }
   }
 
+
+  scheduleWork = (workQueue, previousWorkTimes = {}) => {
+    console.log(previousWorkTimes)
+    requestIdleCallback(deadline => {
+        for (let i = 0; i < workQueue.length; i++) {
+        const { action, tag } = workQueue[i]
+
+        if (previousWorkTimes[tag] == null) {
+          previousWorkTimes[tag] = 1
+        }
+
+        if ((deadline.timeRemaining() * 0.8) < previousWorkTimes[tag]) {
+          Object.keys(previousWorkTimes).map(key => {
+            previousWorkTimes[key] *= 0.9
+          })
+          requestAnimationFrame(() => {
+            this.scheduleWork(workQueue.slice(i), previousWorkTimes)
+          })
+
+          return
+        }
+
+        const start = performance.now()
+        action()
+        previousWorkTimes[tag] = performance.now() - start
+      }
+    })
+  } 
+
   componentDidUpdate() {
     if (this.state.detectionActive) {
-      requestAnimationFrame(() =>
-        requestIdleCallback(deadline => {
-          if (!this.shouldSplitRender(deadline.timeRemaining())) {
-            const drawStart = performance.now()
-            this.updateCanvas()
-            const drawEnd = performance.now()
-            requestIdleCallback(deadline2 => {
-              const detectionStart = performance.now()
-              const { 
-                newFacesData,
-                newFaceScale,
-                newCanvasSizeIndex,
-                newNoFaceFrames,
-                newHighFaceFrames
-              } = this.detect()
+      const updateCanvas = {
+        action: this.updateCanvas,
+        tag: 'updateCanvas'
+      }
 
-              const detectionEnd = performance.now()
-              console.log(deadline2.timeRemaining())
-              // console.log(deadline.timeRemaining())
-      
-              this.setState(() => ({ 
-                facesData: newFacesData,
-                faceScale: newFaceScale,
-                currentCanvasSizeIndex: newCanvasSizeIndex,
-                noFaceFrames: newNoFaceFrames,
-                highFaceFrames: newHighFaceFrames,
-                detectionTimes: this.updatePerformanceQueue(
-                  detectionStart, detectionEnd, this.state.detectionTimes
-                ),
-                drawTimes: this.updatePerformanceQueue(
-                  drawStart, drawEnd, this.state.drawTimes
-                ),
-                framesSinceUpdate: 0
-              }))
-
-              return
-            })
-          }
-
-          const drawStart = performance.now()
-          this.updateCanvas()
-          const drawEnd = performance.now()
-
-          const detectionStart = performance.now()
+      const scheduleAndSetState = {
+        tag: 'scheduleAndSetState',
+        action: () => {
           const { 
             newFacesData,
             newFaceScale,
@@ -111,24 +106,19 @@ export default class FaceDetector extends Component {
             newNoFaceFrames,
             newHighFaceFrames
           } = this.detect()
-          const detectionEnd = performance.now()
-
+  
           this.setState(() => ({ 
             facesData: newFacesData,
             faceScale: newFaceScale,
             currentCanvasSizeIndex: newCanvasSizeIndex,
             noFaceFrames: newNoFaceFrames,
             highFaceFrames: newHighFaceFrames,
-            detectionTimes: this.updatePerformanceQueue(
-              detectionStart, detectionEnd, this.state.detectionTimes
-            ),
-            drawTimes: this.updatePerformanceQueue(
-              drawStart, drawEnd, this.state.drawTimes
-            ),
-            framesSinceUpdate: 0,
+            framesSinceUpdate: 0
           }))
-        })
-      )
+        }
+      }
+
+      requestAnimationFrame(() => this.scheduleWork([updateCanvas, scheduleAndSetState]))
     }
   }
 
@@ -136,7 +126,6 @@ export default class FaceDetector extends Component {
     const detections = this.state.detectionTimes.reduce((acc, n) => acc + n) / 60
     const draws = this.state.drawTimes.reduce((acc, n) => acc + n) / 60
     const { facesData } = this.state
-    // console.log(facesData)
     const relativeFacesData = facesData.length ? 
       facesData.map(face => this.relativeFaceLocation(face)) :
       [{x: null, y: null, size: null, strength: null}]
@@ -182,19 +171,6 @@ export default class FaceDetector extends Component {
 
     return queue
   }
-
-  shouldSplitRender = timeRemaining => {
-    const { drawTimes, detectionTimes } = this.state
-    const averageLast5Draws = drawTimes
-      .slice(58)
-      .reduce((a, c) => a + c) / 2
-
-    const averageLast5Detections = detectionTimes
-      .slice(58)
-      .reduce((a, c) => a + c) / 2
-
-    return (averageLast5Draws + averageLast5Detections) < (timeRemaining)
-  } 
 
   updateCanvas = () => {
     const width = this.state.currentCanvasSizeIndex * 4
@@ -291,3 +267,58 @@ export default class FaceDetector extends Component {
       }
   }
 }
+
+
+
+// componentDidUpdate() {
+//   if (this.state.detectionActive) {
+  
+//       const drawStart = performance.now()
+//       this.scheduleWork(this.updateCanvas)
+//       const drawEnd = performance.now()
+
+//       this.scheduleWork(() => {
+
+//       })
+
+//       const detectionStart = performance.now()
+//       const { 
+//         newFacesData,
+//         newFaceScale,
+//         newCanvasSizeIndex,
+//         newNoFaceFrames,
+//         newHighFaceFrames
+//       } = this.detect()
+//       const detectionEnd = performance.now()
+
+//       this.setState(() => ({ 
+//         facesData: newFacesData,
+//         faceScale: newFaceScale,
+//         currentCanvasSizeIndex: newCanvasSizeIndex,
+//         noFaceFrames: newNoFaceFrames,
+//         highFaceFrames: newHighFaceFrames,
+//         // detectionTimes: this.updatePerformanceQueue(
+//         //   detectionStart, detectionEnd, this.state.detectionTimes
+//         // ),
+//         // drawTimes: this.updatePerformanceQueue(
+//         //   drawStart, drawEnd, this.state.drawTimes
+//         // ),
+//         framesSinceUpdate: 0
+//       }))
+//   }
+// }
+
+
+// scheduleWork = work => {
+//   const { drawTimes, detectionTimes } = this.state
+//   const averageLast5Draws = drawTimes
+//     .slice(55)
+//     .reduce((a, c) => a + c) / 5
+
+//   const averageLast5Detections = detectionTimes
+//     .slice(55)
+//     .reduce((a, c) => a + c) / 5
+
+//   work()
+//   console.log(averageLast5Detections, averageLast5Detections)
+// } 
