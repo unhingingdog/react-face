@@ -58,9 +58,13 @@ export default class FaceDetector extends Component {
   }
 
 //move work times back to state for in between schedule work calls
-
-  scheduleWork = (workQueue, latestDetectionTimes, carryOverData) => {
+  scheduleWork = (workQueue, latestDetectionTimes, data) => {
     requestAnimationFrame(() => {
+      const firstTask = workQueue.shift()
+      const startFirstTask = performance.now()
+      data = firstTask.action(data)
+      latestDetectionTimes[firstTask.tag] = performance.now() - startFirstTask
+
       requestIdleCallback(deadline => {
         for (let i = 0; i < workQueue.length; i++) {
           const { action, tag } = workQueue[i]
@@ -69,29 +73,18 @@ export default class FaceDetector extends Component {
             latestDetectionTimes[tag] = 1
           }
 
-          if ((deadline.timeRemaining() * 0.8) < latestDetectionTimes[tag]) {
-            Object.keys(latestDetectionTimes).map(key => {
-              latestDetectionTimes[key] *= 0.9
-            })
+          if ((deadline.timeRemaining) < latestDetectionTimes[tag]) {
             this.scheduleWork(
               workQueue.slice(i), 
               latestDetectionTimes,
-              carryOverData
+              data
             )
             return
           }
 
-          let data
-          const start = performance.now()
-          if (i === workQueue.length - 1) {
-            action(carryOverData, latestDetectionTimes)
-          } else {
-            data = action(carryOverData)
-          }
-          latestDetectionTimes[tag] = performance.now() - start
-
-          carryOverData = null
-          if (data != null) carryOverData = data
+          const taskStart = performance.now()
+          data = action(data, latestDetectionTimes)
+          latestDetectionTimes[tag] = performance.now() - taskStart
         }
       })
     })
@@ -115,8 +108,8 @@ export default class FaceDetector extends Component {
         tag: 'getContextData'
       }
 
-      const scheduleAndSetState = {
-        tag: 'scheduleAndSetState',
+      const detectAndSetState = {
+        tag: 'detectAndSetState',
         action: (imageData, latestDetectionTimes) => {
           const { 
             newFacesData,
@@ -127,7 +120,7 @@ export default class FaceDetector extends Component {
           } = this.detect(imageData)
   
           this.setState(() => ({ 
-            facesData: newFacesData,
+            facesData: newFacesData[0] ? newFacesData : this.state.facesData,
             faceScale: newFaceScale,
             currentCanvasSizeIndex: newCanvasSizeIndex,
             noFaceFrames: newNoFaceFrames,
@@ -141,7 +134,7 @@ export default class FaceDetector extends Component {
       this.scheduleWork([
         updateCanvas, 
         getContextData,
-        scheduleAndSetState
+        detectAndSetState
       ], this.state.latestDetectionTimes)
     }
   }
@@ -200,6 +193,16 @@ export default class FaceDetector extends Component {
     this.canvas.width = Math.floor(width)
     this.canvas.height = Math.floor(height)
     this.ctx.drawImage(this.video, 0, 0, width, height)
+
+    if (this.state.facesData[0]) {
+      this.state.facesData.map(face => {
+        this.ctx.beginPath();
+        this.ctx.arc(face.x, face.y, face.size / 2, 0, 2 * Math.PI, false);
+        this.ctx.lineWidth = 3;
+        this.ctx.strokeStyle = face.strength < 100 ? 'red' : 'aqua';
+        this.ctx.stroke();
+      })
+    }
   }
 
   detect = (imageData = 1) => {
@@ -246,7 +249,7 @@ export default class FaceDetector extends Component {
         || faceScale
 
       if (bestDetection > 250) {
-        if (newHighFaceFrames < 5) {
+        if (newHighFaceFrames < 2) {
           newHighFaceFrames = newHighFaceFrames + 1
         } else {
           newCanvasSizeIndex = newCanvasSizeIndex - 2
@@ -269,16 +272,6 @@ export default class FaceDetector extends Component {
       } else {
         newNoFaceFrames = 0
       }
-
-      if (newFacesData[0]) {
-        newFacesData.map(face => {
-          this.ctx.beginPath();
-          this.ctx.arc(face.x, face.y, face.size / 2, 0, 2 * Math.PI, false);
-          this.ctx.lineWidth = 3;
-          this.ctx.strokeStyle = face.strength < 100 ? 'red' : 'aqua';
-          this.ctx.stroke();
-        })
-      }
       
       return { 
         newFacesData,
@@ -289,58 +282,3 @@ export default class FaceDetector extends Component {
       }
   }
 }
-
-
-
-// componentDidUpdate() {
-//   if (this.state.detectionActive) {
-  
-//       const drawStart = performance.now()
-//       this.scheduleWork(this.updateCanvas)
-//       const drawEnd = performance.now()
-
-//       this.scheduleWork(() => {
-
-//       })
-
-//       const detectionStart = performance.now()
-//       const { 
-//         newFacesData,
-//         newFaceScale,
-//         newCanvasSizeIndex,
-//         newNoFaceFrames,
-//         newHighFaceFrames
-//       } = this.detect()
-//       const detectionEnd = performance.now()
-
-//       this.setState(() => ({ 
-//         facesData: newFacesData,
-//         faceScale: newFaceScale,
-//         currentCanvasSizeIndex: newCanvasSizeIndex,
-//         noFaceFrames: newNoFaceFrames,
-//         highFaceFrames: newHighFaceFrames,
-//         // detectionTimes: this.updatePerformanceQueue(
-//         //   detectionStart, detectionEnd, this.state.detectionTimes
-//         // ),
-//         // drawTimes: this.updatePerformanceQueue(
-//         //   drawStart, drawEnd, this.state.drawTimes
-//         // ),
-//         framesSinceUpdate: 0
-//       }))
-//   }
-// }
-
-
-// scheduleWork = work => {
-//   const { drawTimes, detectionTimes } = this.state
-//   const averageLast5Draws = drawTimes
-//     .slice(55)
-//     .reduce((a, c) => a + c) / 5
-
-//   const averageLast5Detections = detectionTimes
-//     .slice(55)
-//     .reduce((a, c) => a + c) / 5
-
-//   work()
-//   console.log(averageLast5Detections, averageLast5Detections)
-// } 
