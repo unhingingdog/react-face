@@ -219,15 +219,12 @@ const rgba_to_grayscale = (rgba, nrows, ncols) => {
 	return gray
 }
 
-//	(3) this function is called each time a video frame becomes available
-
-export const processfn = (ctx, minFaceSize, height, width) => {
+export const processfn = (imageData, minFaceSize, height, width) => {
+	if (!imageData) return null
     let dets
-	// render the video frame to the canvas element and extract RGBA pixel data
-	var rgba = ctx.getImageData(0, 0, width, height).data;
 	// prepare input to `run_cascade`
 	const image = {
-		"pixels": rgba_to_grayscale(rgba, height, width),
+		"pixels": rgba_to_grayscale(imageData, height, width),
 		"nrows": height,
 		"ncols": width,
 		"ldim": width

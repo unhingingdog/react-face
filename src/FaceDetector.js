@@ -19,8 +19,7 @@ export default class FaceDetector extends Component {
       height: this.maxHeight,
       noFaceFrames: 0,
       highFaceFrames: 0,
-      detectionTimes: new Array(60).fill(0),
-      drawTimes: new Array(60).fill(0),
+      latestDetectionTimes: {},
       framesSinceUpdate: 0
     }
   }
@@ -34,8 +33,6 @@ export default class FaceDetector extends Component {
     this.ctx = this.canvas.getContext('2d', { alpha: false })
 		
     pico.picoInit()
-    
-    // setTimeout(() => this.setState({ detectionActive: false }), 5000)
 
     if (this.state.detectionActive) {
       window.requestIdleCallback(() => {
@@ -60,52 +57,74 @@ export default class FaceDetector extends Component {
     }
   }
 
+//move work times back to state for in between schedule work calls
 
-  scheduleWork = (workQueue, previousWorkTimes = {}) => {
-    console.log(previousWorkTimes)
-    requestIdleCallback(deadline => {
+  scheduleWork = (workQueue, latestDetectionTimes, carryOverData) => {
+    requestAnimationFrame(() => {
+      requestIdleCallback(deadline => {
         for (let i = 0; i < workQueue.length; i++) {
-        const { action, tag } = workQueue[i]
+          const { action, tag } = workQueue[i]
 
-        if (previousWorkTimes[tag] == null) {
-          previousWorkTimes[tag] = 1
+          if (latestDetectionTimes[tag] == null) {
+            latestDetectionTimes[tag] = 1
+          }
+
+          if ((deadline.timeRemaining() * 0.8) < latestDetectionTimes[tag]) {
+            Object.keys(latestDetectionTimes).map(key => {
+              latestDetectionTimes[key] *= 0.9
+            })
+            this.scheduleWork(
+              workQueue.slice(i), 
+              latestDetectionTimes,
+              carryOverData
+            )
+            return
+          }
+
+          let data
+          const start = performance.now()
+          if (i === workQueue.length - 1) {
+            action(carryOverData, latestDetectionTimes)
+          } else {
+            data = action(carryOverData)
+          }
+          latestDetectionTimes[tag] = performance.now() - start
+
+          carryOverData = null
+          if (data != null) carryOverData = data
         }
-
-        if ((deadline.timeRemaining() * 0.8) < previousWorkTimes[tag]) {
-          Object.keys(previousWorkTimes).map(key => {
-            previousWorkTimes[key] *= 0.9
-          })
-          requestAnimationFrame(() => {
-            this.scheduleWork(workQueue.slice(i), previousWorkTimes)
-          })
-
-          return
-        }
-
-        const start = performance.now()
-        action()
-        previousWorkTimes[tag] = performance.now() - start
-      }
+      })
     })
   } 
 
   componentDidUpdate() {
+    console.log(this.state.latestDetectionTimes)
     if (this.state.detectionActive) {
       const updateCanvas = {
         action: this.updateCanvas,
         tag: 'updateCanvas'
       }
 
+      const getContextData = {
+        action: () => this.ctx.getImageData(
+          0,
+          0, 
+          this.state.currentCanvasSizeIndex * 4, 
+          this.state.currentCanvasSizeIndex * 3
+        ).data,
+        tag: 'getContextData'
+      }
+
       const scheduleAndSetState = {
         tag: 'scheduleAndSetState',
-        action: () => {
+        action: (imageData, latestDetectionTimes) => {
           const { 
             newFacesData,
             newFaceScale,
             newCanvasSizeIndex,
             newNoFaceFrames,
             newHighFaceFrames
-          } = this.detect()
+          } = this.detect(imageData)
   
           this.setState(() => ({ 
             facesData: newFacesData,
@@ -113,18 +132,21 @@ export default class FaceDetector extends Component {
             currentCanvasSizeIndex: newCanvasSizeIndex,
             noFaceFrames: newNoFaceFrames,
             highFaceFrames: newHighFaceFrames,
-            framesSinceUpdate: 0
+            framesSinceUpdate: 0,
+            latestDetectionTimes
           }))
         }
       }
 
-      requestAnimationFrame(() => this.scheduleWork([updateCanvas, scheduleAndSetState]))
+      this.scheduleWork([
+        updateCanvas, 
+        getContextData,
+        scheduleAndSetState
+      ], this.state.latestDetectionTimes)
     }
   }
 
   render() {
-    const detections = this.state.detectionTimes.reduce((acc, n) => acc + n) / 60
-    const draws = this.state.drawTimes.reduce((acc, n) => acc + n) / 60
     const { facesData } = this.state
     const relativeFacesData = facesData.length ? 
       facesData.map(face => this.relativeFaceLocation(face)) :
@@ -132,7 +154,7 @@ export default class FaceDetector extends Component {
 
     return (
       <div className="App" style={{ display: 'flex', flexDirection: 'column' }}>
-        <div style={{ width: 600, height: 450, display: this.props.children ? 'none' : 'relative' }}>
+        <div style={{ width: 600, height: 450, display: false ? 'none' : 'relative' }}>
           <canvas 
             ref={ref => this.canvas = ref} 
           />
@@ -180,13 +202,13 @@ export default class FaceDetector extends Component {
     this.ctx.drawImage(this.video, 0, 0, width, height)
   }
 
-  detect = () => {
+  detect = (imageData = 1) => {
       const detectedFacesData = pico.processfn(
-        this.ctx, 
+        imageData, 
         this.baseFaceSize * this.state.faceScale,
         this.state.currentCanvasSizeIndex * 3,
         this.state.currentCanvasSizeIndex * 4
-      ).filter(face => face[3] > 15)
+      ).filter(face => face[3] > 20)
 
       let newFacesData = []
       let bestDetectionData = [0, 0]
@@ -248,7 +270,7 @@ export default class FaceDetector extends Component {
         newNoFaceFrames = 0
       }
 
-      if (this.props.children) {
+      if (newFacesData[0]) {
         newFacesData.map(face => {
           this.ctx.beginPath();
           this.ctx.arc(face.x, face.y, face.size / 2, 0, 2 * Math.PI, false);
