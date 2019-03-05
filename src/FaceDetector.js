@@ -59,10 +59,12 @@ export default class FaceDetector extends Component {
 
 //move work times back to state for in between schedule work calls
   scheduleWork = (workQueue, latestDetectionTimes, data) => {
+    console.log('start')
     requestAnimationFrame(() => {
       const firstTask = workQueue.shift()
       const startFirstTask = performance.now()
       data = firstTask.action(data)
+      console.log('ran ', firstTask.tag)
       latestDetectionTimes[firstTask.tag] = performance.now() - startFirstTask
 
       requestIdleCallback(deadline => {
@@ -83,8 +85,10 @@ export default class FaceDetector extends Component {
           }
 
           const taskStart = performance.now()
+          console.log('ran ', tag)
           data = action(data, latestDetectionTimes)
           latestDetectionTimes[tag] = performance.now() - taskStart
+          console.log('end')
         }
       })
     })
@@ -260,7 +264,7 @@ export default class FaceDetector extends Component {
       }
 
       if (!newFacesData.length) {
-          if (newNoFaceFrames < 3) {
+          if (newNoFaceFrames < 2) {
             newNoFaceFrames = newNoFaceFrames + 1
           } else {
             newCanvasSizeIndex = Math.min(
