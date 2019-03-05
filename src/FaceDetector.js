@@ -7,8 +7,13 @@ export default class FaceDetector extends Component {
     super(props)
 
     this.ctx = null
+    this.imageData = null
     this.video = document.createElement("video")
     this.baseFaceSize = 100
+
+    this.workQueue = []
+    this.taskTimes = {}
+    this.carryOverData = null
 
     this.state = { 
       currentCanvasSizeIndex: 100,
@@ -19,8 +24,7 @@ export default class FaceDetector extends Component {
       height: this.maxHeight,
       noFaceFrames: 0,
       highFaceFrames: 0,
-      latestDetectionTimes: {},
-      framesSinceUpdate: 0
+      framesSinceUpdate: 0,
     }
   }
 
@@ -35,93 +39,61 @@ export default class FaceDetector extends Component {
     pico.picoInit()
 
     if (this.state.detectionActive) {
-      window.requestIdleCallback(() => {
-        this.updateCanvas()
-
-        const { 
-          newFacesData,
-          newFaceScale,
-          newCanvasSizeIndex,
-          newNoFaceFrames,
-          newHighFaceFrames
-        } = this.detect()
-
-        this.setState(() => ({ 
-          facesData: newFacesData,
-          faceScale: newFaceScale,
-          currentCanvasSizeIndex: newCanvasSizeIndex,
-          noFaceFrames: newNoFaceFrames,
-          highFaceFrames: newHighFaceFrames
-        }))
-      })
+      this.newWorkQueue()
+      this.detectionLoop()
     }
   }
 
-//move work times back to state for in between schedule work calls
-  scheduleWork = (workQueue, latestDetectionTimes, data) => {
-    console.log('start')
-    requestAnimationFrame(() => {
-      const firstTask = workQueue.shift()
-      const startFirstTask = performance.now()
-      data = firstTask.action(data)
-      console.log('ran ', firstTask.tag)
-      latestDetectionTimes[firstTask.tag] = performance.now() - startFirstTask
+  performPartialWork = () => {
+    if (!this.workQueue.length) return
+    const firstTask = this.workQueue.shift()
 
-      requestIdleCallback(deadline => {
-        for (let i = 0; i < workQueue.length; i++) {
-          const { action, tag } = workQueue[i]
+    const taskStartTime = performance.now()
+    this.carryOverData = firstTask.action(this.carryOverData)
+    this.taskTimes[firstTask.tag] = performance.now() - taskStartTime
 
-          if (latestDetectionTimes[tag] == null) {
-            latestDetectionTimes[tag] = 1
-          }
+    if (!this.workQueue.length) return
 
-          if ((deadline.timeRemaining) < latestDetectionTimes[tag]) {
-            this.scheduleWork(
-              workQueue.slice(i), 
-              latestDetectionTimes,
-              data
-            )
-            return
-          }
-
-          const taskStart = performance.now()
-          console.log('ran ', tag)
-          data = action(data, latestDetectionTimes)
-          latestDetectionTimes[tag] = performance.now() - taskStart
-          console.log('end')
-        }
-      })
+    requestIdleCallback(deadline => {
+      if (!this.taskTimes[this.workQueue[0].tag]) this.taskTimes[this.workQueue[0].tag] = 1
+      if (this.taskTimes[this.workQueue[0].tag] < deadline.timeRemaining() * 0.9) {
+        this.performPartialWork()
+      }
     })
-  } 
+  }
 
-  componentDidUpdate() {
-    console.log(this.state.latestDetectionTimes)
-    if (this.state.detectionActive) {
-      const updateCanvas = {
+  detectionLoop = () => {
+    this.performPartialWork()
+    requestAnimationFrame(this.detectionLoop)
+  }
+
+  newWorkQueue() {
+    this.workQueue = [
+      {
         action: this.updateCanvas,
         tag: 'updateCanvas'
-      }
-
-      const getContextData = {
-        action: () => this.ctx.getImageData(
-          0,
-          0, 
-          this.state.currentCanvasSizeIndex * 4, 
-          this.state.currentCanvasSizeIndex * 3
-        ).data,
+      },
+      {
+        action: () => { 
+          this.imageData = this.ctx.getImageData(
+            0,
+            0, 
+            this.state.currentCanvasSizeIndex * 4, 
+            this.state.currentCanvasSizeIndex * 3
+          ).data
+        },
         tag: 'getContextData'
-      }
-
-      const detectAndSetState = {
+      },
+      {
         tag: 'detectAndSetState',
-        action: (imageData, latestDetectionTimes) => {
+        action: () => {
           const { 
             newFacesData,
             newFaceScale,
             newCanvasSizeIndex,
             newNoFaceFrames,
             newHighFaceFrames
-          } = this.detect(imageData)
+          } = this.detect(this.imageData)
   
           this.setState(() => ({ 
             facesData: newFacesData[0] ? newFacesData : this.state.facesData,
@@ -129,17 +101,16 @@ export default class FaceDetector extends Component {
             currentCanvasSizeIndex: newCanvasSizeIndex,
             noFaceFrames: newNoFaceFrames,
             highFaceFrames: newHighFaceFrames,
-            framesSinceUpdate: 0,
-            latestDetectionTimes
+            framesSinceUpdate: 0
           }))
         }
       }
+    ]
+  }
 
-      this.scheduleWork([
-        updateCanvas, 
-        getContextData,
-        detectAndSetState
-      ], this.state.latestDetectionTimes)
+  componentDidUpdate() {
+    if (this.state.detectionActive && !this.workQueue.length) {
+      this.newWorkQueue()
     }
   }
 
@@ -253,7 +224,7 @@ export default class FaceDetector extends Component {
         || faceScale
 
       if (bestDetection > 250) {
-        if (newHighFaceFrames < 2) {
+        if (newHighFaceFrames < 1) {
           newHighFaceFrames = newHighFaceFrames + 1
         } else {
           newCanvasSizeIndex = newCanvasSizeIndex - 2
@@ -264,7 +235,7 @@ export default class FaceDetector extends Component {
       }
 
       if (!newFacesData.length) {
-          if (newNoFaceFrames < 2) {
+          if (newNoFaceFrames < 1) {
             newNoFaceFrames = newNoFaceFrames + 1
           } else {
             newCanvasSizeIndex = Math.min(
@@ -286,3 +257,36 @@ export default class FaceDetector extends Component {
       }
   }
 }
+
+//move work times back to state for in between schedule work calls
+  // scheduleWork = (workQueue, latestDetectionTimes, data) => {
+  //   requestAnimationFrame(() => {
+  //     const firstTask = workQueue.shift()
+  //     const startFirstTask = performance.now()
+  //     data = firstTask.action(data)
+  //     latestDetectionTimes[firstTask.tag] = performance.now() - startFirstTask
+
+  //     requestIdleCallback(deadline => {
+  //       for (let i = 0; i < workQueue.length; i++) {
+  //         const { action, tag } = workQueue[i]
+
+  //         if (latestDetectionTimes[tag] == null) {
+  //           latestDetectionTimes[tag] = 1
+  //         }
+
+  //         if ((deadline.timeRemaining) < latestDetectionTimes[tag]) {
+  //           this.scheduleWork(
+  //             workQueue.slice(i), 
+  //             latestDetectionTimes,
+  //             data
+  //           )
+  //           return
+  //         }
+
+  //         const taskStart = performance.now()
+  //         data = action(data, latestDetectionTimes)
+  //         latestDetectionTimes[tag] = performance.now() - taskStart
+  //       }
+  //     })
+  //   })
+  // } 
