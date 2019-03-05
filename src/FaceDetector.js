@@ -77,7 +77,6 @@ export default class FaceDetector extends Component {
               } = this.detect()
 
               const detectionEnd = performance.now()
-              console.log(deadline2.timeRemaining())
               // console.log(deadline.timeRemaining())
       
               this.setState(() => ({ 
@@ -143,7 +142,7 @@ export default class FaceDetector extends Component {
 
     return (
       <div className="App" style={{ display: 'flex', flexDirection: 'column' }}>
-        <div style={{ width: 600, height: 450, display: this.props.children ? 'none' : 'relative' }}>
+        <div style={{ width: 600, height: 450, display: false ? 'none' : 'relative' }}>
           <canvas 
             ref={ref => this.canvas = ref} 
           />
@@ -272,7 +271,7 @@ export default class FaceDetector extends Component {
         newNoFaceFrames = 0
       }
 
-      if (this.props.children) {
+      if (true) {
         newFacesData.map(face => {
           this.ctx.beginPath();
           this.ctx.arc(face.x, face.y, face.size / 2, 0, 2 * Math.PI, false);
