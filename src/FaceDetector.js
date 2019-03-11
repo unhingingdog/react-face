@@ -257,36 +257,3 @@ export default class FaceDetector extends Component {
       }
   }
 }
-
-//move work times back to state for in between schedule work calls
-  // scheduleWork = (workQueue, latestDetectionTimes, data) => {
-  //   requestAnimationFrame(() => {
-  //     const firstTask = workQueue.shift()
-  //     const startFirstTask = performance.now()
-  //     data = firstTask.action(data)
-  //     latestDetectionTimes[firstTask.tag] = performance.now() - startFirstTask
-
-  //     requestIdleCallback(deadline => {
-  //       for (let i = 0; i < workQueue.length; i++) {
-  //         const { action, tag } = workQueue[i]
-
-  //         if (latestDetectionTimes[tag] == null) {
-  //           latestDetectionTimes[tag] = 1
-  //         }
-
-  //         if ((deadline.timeRemaining) < latestDetectionTimes[tag]) {
-  //           this.scheduleWork(
-  //             workQueue.slice(i), 
-  //             latestDetectionTimes,
-  //             data
-  //           )
-  //           return
-  //         }
-
-  //         const taskStart = performance.now()
-  //         data = action(data, latestDetectionTimes)
-  //         latestDetectionTimes[tag] = performance.now() - taskStart
-  //       }
-  //     })
-  //   })
-  // } 

@@ -14,7 +14,7 @@ const App = props => {
                 }
             </FaceDetector>
             <TestMover startPosition={0} inc={60} />
-            {/* <TestMover startPosition={20} inc={60} />
+            <TestMover startPosition={20} inc={60} />
             <TestMover startPosition={40} inc={60} />
             <TestMover startPosition={60} inc={60} />
             <TestMover startPosition={80} inc={60} />
@@ -22,7 +22,7 @@ const App = props => {
             <TestMover startPosition={120} inc={60}/>
             <TestMover startPosition={140} inc={60} />
             <TestMover startPosition={160} inc={60} />
-            <TestMover startPosition={180} inc={60} /> */}
+            <TestMover startPosition={180} inc={60} />
         </React.Fragment>
     )
 }

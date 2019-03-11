@@ -1,3 +1,5 @@
+/* This library is released under the MIT license, see https://github.com/tehnokv/picojs */
+
 const unpack_cascade = bytes => {
 	const dview = new DataView(new ArrayBuffer(4));
 
@@ -83,7 +85,7 @@ const unpack_cascade = bytes => {
 }
 
 let facefinder_classify_region  = (r, c, s, pixels, ldim) => -1.0
-const update_memory = instantiate_detection_memory(15)
+const update_memory = instantiate_detection_memory(5)
 
 export const picoInit = () => {
 	var cascadeurl = 'https://raw.githubusercontent.com/nenadmarkus/pico/c2e81f9d23cc11d1a612fd21e4f9de0921a5d0d9/rnt/cascades/facefinder'
