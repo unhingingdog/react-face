@@ -1,3 +1,5 @@
+/* This library is released under the MIT license, see https://github.com/tehnokv/picojs */
+
 const unpack_cascade = bytes => {
 	const dview = new DataView(new ArrayBuffer(4));
 
@@ -83,7 +85,7 @@ const unpack_cascade = bytes => {
 }
 
 let facefinder_classify_region  = (r, c, s, pixels, ldim) => -1.0
-const update_memory = instantiate_detection_memory(12)
+const update_memory = instantiate_detection_memory(5)
 
 export const picoInit = () => {
 	var cascadeurl = 'https://raw.githubusercontent.com/nenadmarkus/pico/c2e81f9d23cc11d1a612fd21e4f9de0921a5d0d9/rnt/cascades/facefinder'
@@ -219,15 +221,12 @@ const rgba_to_grayscale = (rgba, nrows, ncols) => {
 	return gray
 }
 
-//	(3) this function is called each time a video frame becomes available
-
-export const processfn = (ctx, minFaceSize, height, width) => {
+export const processfn = (imageData, minFaceSize, height, width) => {
+	if (!imageData) return null
     let dets
-	// render the video frame to the canvas element and extract RGBA pixel data
-	var rgba = ctx.getImageData(0, 0, width, height).data;
 	// prepare input to `run_cascade`
 	const image = {
-		"pixels": rgba_to_grayscale(rgba, height, width),
+		"pixels": rgba_to_grayscale(imageData, height, width),
 		"nrows": height,
 		"ncols": width,
 		"ldim": width

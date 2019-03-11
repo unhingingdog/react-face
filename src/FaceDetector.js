@@ -7,8 +7,13 @@ export default class FaceDetector extends Component {
     super(props)
 
     this.ctx = null
+    this.imageData = null
     this.video = document.createElement("video")
     this.baseFaceSize = 100
+
+    this.workQueue = []
+    this.taskTimes = {}
+    this.carryOverData = null
 
     this.state = { 
       currentCanvasSizeIndex: 100,
@@ -19,9 +24,7 @@ export default class FaceDetector extends Component {
       height: this.maxHeight,
       noFaceFrames: 0,
       highFaceFrames: 0,
-      detectionTimes: new Array(60).fill(0),
-      drawTimes: new Array(60).fill(0),
-      framesSinceUpdate: 0
+      framesSinceUpdate: 0,
     }
   }
 
@@ -33,109 +36,86 @@ export default class FaceDetector extends Component {
     this.video.play()
     this.ctx = this.canvas.getContext('2d', { alpha: false })
 		
-		pico.picoInit()
+    pico.picoInit()
 
     if (this.state.detectionActive) {
-      window.requestIdleCallback(() => {
-        this.updateCanvas()
-
-        const { 
-          newFacesData,
-          newFaceScale,
-          newCanvasSizeIndex,
-          newNoFaceFrames,
-          newHighFaceFrames
-        } = this.detect()
-
-        this.setState(() => ({ 
-          facesData: newFacesData,
-          faceScale: newFaceScale,
-          currentCanvasSizeIndex: newCanvasSizeIndex,
-          noFaceFrames: newNoFaceFrames,
-          highFaceFrames: newHighFaceFrames
-        }))
-      })
+      this.newWorkQueue()
+      this.detectionLoop()
     }
   }
 
-  componentDidUpdate() {
-    if (this.state.detectionActive) {
-      requestAnimationFrame(() =>
-        requestIdleCallback(deadline => {
-          if (!this.shouldSplitRender(deadline.timeRemaining())) {
-            const drawStart = performance.now()
-            this.updateCanvas()
-            const drawEnd = performance.now()
-            requestIdleCallback(deadline2 => {
-              const detectionStart = performance.now()
-              const { 
-                newFacesData,
-                newFaceScale,
-                newCanvasSizeIndex,
-                newNoFaceFrames,
-                newHighFaceFrames
-              } = this.detect()
+  performPartialWork = () => {
+    if (!this.workQueue.length) return
+    const firstTask = this.workQueue.shift()
 
-              const detectionEnd = performance.now()
-              // console.log(deadline.timeRemaining())
-      
-              this.setState(() => ({ 
-                facesData: newFacesData,
-                faceScale: newFaceScale,
-                currentCanvasSizeIndex: newCanvasSizeIndex,
-                noFaceFrames: newNoFaceFrames,
-                highFaceFrames: newHighFaceFrames,
-                detectionTimes: this.updatePerformanceQueue(
-                  detectionStart, detectionEnd, this.state.detectionTimes
-                ),
-                drawTimes: this.updatePerformanceQueue(
-                  drawStart, drawEnd, this.state.drawTimes
-                ),
-                framesSinceUpdate: 0
-              }))
+    const taskStartTime = performance.now()
+    this.carryOverData = firstTask.action(this.carryOverData)
+    this.taskTimes[firstTask.tag] = performance.now() - taskStartTime
 
-              return
-            })
-          }
+    if (!this.workQueue.length) return
 
-          const drawStart = performance.now()
-          this.updateCanvas()
-          const drawEnd = performance.now()
+    requestIdleCallback(deadline => {
+      if (!this.taskTimes[this.workQueue[0].tag]) this.taskTimes[this.workQueue[0].tag] = 1
+      if (this.taskTimes[this.workQueue[0].tag] < deadline.timeRemaining() * 0.9) {
+        this.performPartialWork()
+      }
+    })
+  }
 
-          const detectionStart = performance.now()
+  detectionLoop = () => {
+    this.performPartialWork()
+    requestAnimationFrame(this.detectionLoop)
+  }
+
+  newWorkQueue() {
+    this.workQueue = [
+      {
+        action: this.updateCanvas,
+        tag: 'updateCanvas'
+      },
+      {
+        action: () => { 
+          this.imageData = this.ctx.getImageData(
+            0,
+            0, 
+            this.state.currentCanvasSizeIndex * 4, 
+            this.state.currentCanvasSizeIndex * 3
+          ).data
+        },
+        tag: 'getContextData'
+      },
+      {
+        tag: 'detectAndSetState',
+        action: () => {
           const { 
             newFacesData,
             newFaceScale,
             newCanvasSizeIndex,
             newNoFaceFrames,
             newHighFaceFrames
-          } = this.detect()
-          const detectionEnd = performance.now()
-
+          } = this.detect(this.imageData)
+  
           this.setState(() => ({ 
-            facesData: newFacesData,
+            facesData: newFacesData[0] ? newFacesData : this.state.facesData,
             faceScale: newFaceScale,
             currentCanvasSizeIndex: newCanvasSizeIndex,
             noFaceFrames: newNoFaceFrames,
             highFaceFrames: newHighFaceFrames,
-            detectionTimes: this.updatePerformanceQueue(
-              detectionStart, detectionEnd, this.state.detectionTimes
-            ),
-            drawTimes: this.updatePerformanceQueue(
-              drawStart, drawEnd, this.state.drawTimes
-            ),
-            framesSinceUpdate: 0,
+            framesSinceUpdate: 0
           }))
-        })
-      )
+        }
+      }
+    ]
+  }
+
+  componentDidUpdate() {
+    if (this.state.detectionActive && !this.workQueue.length) {
+      this.newWorkQueue()
     }
   }
 
   render() {
-    const detections = this.state.detectionTimes.reduce((acc, n) => acc + n) / 60
-    const draws = this.state.drawTimes.reduce((acc, n) => acc + n) / 60
     const { facesData } = this.state
-    // console.log(facesData)
     const relativeFacesData = facesData.length ? 
       facesData.map(face => this.relativeFaceLocation(face)) :
       [{x: null, y: null, size: null, strength: null}]
@@ -182,34 +162,31 @@ export default class FaceDetector extends Component {
     return queue
   }
 
-  shouldSplitRender = timeRemaining => {
-    const { drawTimes, detectionTimes } = this.state
-    const averageLast5Draws = drawTimes
-      .slice(58)
-      .reduce((a, c) => a + c) / 2
-
-    const averageLast5Detections = detectionTimes
-      .slice(58)
-      .reduce((a, c) => a + c) / 2
-
-    return (averageLast5Draws + averageLast5Detections) < (timeRemaining)
-  } 
-
   updateCanvas = () => {
     const width = this.state.currentCanvasSizeIndex * 4
     const height = this.state.currentCanvasSizeIndex * 3
     this.canvas.width = Math.floor(width)
     this.canvas.height = Math.floor(height)
     this.ctx.drawImage(this.video, 0, 0, width, height)
+
+    if (this.state.facesData[0]) {
+      this.state.facesData.map(face => {
+        this.ctx.beginPath();
+        this.ctx.arc(face.x, face.y, face.size / 2, 0, 2 * Math.PI, false);
+        this.ctx.lineWidth = 3;
+        this.ctx.strokeStyle = face.strength < 100 ? 'red' : 'aqua';
+        this.ctx.stroke();
+      })
+    }
   }
 
-  detect = () => {
+  detect = (imageData = 1) => {
       const detectedFacesData = pico.processfn(
-        this.ctx, 
+        imageData, 
         this.baseFaceSize * this.state.faceScale,
         this.state.currentCanvasSizeIndex * 3,
         this.state.currentCanvasSizeIndex * 4
-      ).filter(face => face[3] > 15)
+      ).filter(face => face[3] > 20)
 
       let newFacesData = []
       let bestDetectionData = [0, 0]
@@ -247,7 +224,7 @@ export default class FaceDetector extends Component {
         || faceScale
 
       if (bestDetection > 250) {
-        if (newHighFaceFrames < 5) {
+        if (newHighFaceFrames < 1) {
           newHighFaceFrames = newHighFaceFrames + 1
         } else {
           newCanvasSizeIndex = newCanvasSizeIndex - 2
@@ -258,7 +235,7 @@ export default class FaceDetector extends Component {
       }
 
       if (!newFacesData.length) {
-          if (newNoFaceFrames < 3) {
+          if (newNoFaceFrames < 1) {
             newNoFaceFrames = newNoFaceFrames + 1
           } else {
             newCanvasSizeIndex = Math.min(
@@ -269,16 +246,6 @@ export default class FaceDetector extends Component {
           }
       } else {
         newNoFaceFrames = 0
-      }
-
-      if (true) {
-        newFacesData.map(face => {
-          this.ctx.beginPath();
-          this.ctx.arc(face.x, face.y, face.size / 2, 0, 2 * Math.PI, false);
-          this.ctx.lineWidth = 3;
-          this.ctx.strokeStyle = face.strength < 100 ? 'red' : 'aqua';
-          this.ctx.stroke();
-        })
       }
       
       return { 

@@ -5,6 +5,7 @@ import TestMover from './TestMover'
 const App = props => {
     return (
         <React.Fragment>
+            <h1>Split tasks build</h1>
             <FaceDetector>
                 {facesData => 
                     <ul>
