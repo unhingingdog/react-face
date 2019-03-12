@@ -6,8 +6,11 @@ Run the following command:
 `npm install react-face`
 
 ## How to use
-Use a function as a child to FaceDetector to pass data through to your component.     
+Use a function as a child to FaceDetector to pass data through to your component. 
+
 `<FaceDetector>{facesData => <YourComponent facesData={facesData} />}<FaceDetector>`
+
+The data is an array of information about each face detected. These each contain the location (x & y value of the centre of the face as a value between 0 and 100, with the x value flipped), size, and detection strength for each face.
 
 
 ## How it works
