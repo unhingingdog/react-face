@@ -5,6 +5,13 @@ A component which detects faces using the user media camera API, and injects fac
 Run the following command: 
 `npm install react-face`
 
+## How to use
+Place your app or component to receive face data as a child to the FaceDetector component.     
+`<FaceDetector>
+    {facesData => <YourComponent facesData={facesData} />}
+</FaceDetector>`
+
+
 ## How it works
 The face detection algorithm used is a modification of the Viola-Jones method called Pico, created by by Markuš et al. (2013) (https://github.com/nenadmarkus/pico). This component uses a JavaScript implementation called Pico.js by tehnokv (https://github.com/tehnokv/picojs).
 
