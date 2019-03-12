@@ -1,2 +1,2 @@
 import FaceDetector from './FaceDetector'
-export { FaceDetector }
+export default FaceDetector
