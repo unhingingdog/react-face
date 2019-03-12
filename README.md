@@ -1,5 +1,5 @@
 ## react-face
-A component and detects faces using the user media camera API, and injects face position data into an application using a render prop.
+A component which detects faces using the user media camera API, and injects face position data into an application using a render prop.
 
 ## Installation
 Run the following command: 
