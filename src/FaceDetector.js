@@ -44,6 +44,26 @@ export default class FaceDetector extends Component {
     }
   }
 
+  componentDidUpdate() {
+    if (this.state.detectionActive && !this.workQueue.length) {
+      this.newWorkQueue()
+    }
+  }
+
+  render() {
+    const { facesData } = this.state
+    const relativeFacesData = facesData.length ? 
+      facesData.map(face => this.relativeFaceLocation(face)) :
+      [{x: null, y: null, size: null, strength: null}]
+
+    return (
+      <React.Fragment>
+        <canvas ref={ref => this.canvas = ref} style={{ display: 'none' }} />
+        {this.props.children && this.props.children(relativeFacesData)}
+      </React.Fragment>
+    )
+  }
+
   performPartialWork = () => {
     if (!this.workQueue.length) return
     const firstTask = this.workQueue.shift()
@@ -108,30 +128,6 @@ export default class FaceDetector extends Component {
     ]
   }
 
-  componentDidUpdate() {
-    if (this.state.detectionActive && !this.workQueue.length) {
-      this.newWorkQueue()
-    }
-  }
-
-  render() {
-    const { facesData } = this.state
-    const relativeFacesData = facesData.length ? 
-      facesData.map(face => this.relativeFaceLocation(face)) :
-      [{x: null, y: null, size: null, strength: null}]
-
-    return (
-      <div className="App" style={{ display: 'flex', flexDirection: 'column' }}>
-        <div style={{ width: 600, height: 450, display: false ? 'none' : 'relative' }}>
-          <canvas 
-            ref={ref => this.canvas = ref} 
-          />
-        </div>
-        {this.props.children && this.props.children(relativeFacesData)}
-      </div>
-    )
-  }
-
   relativeFaceLocation = (faceData) => {
     const { currentCanvasSizeIndex: canvasSize } = this.state
     const widthIndex = canvasSize * 4 / 100
@@ -144,8 +140,8 @@ export default class FaceDetector extends Component {
       y = Math.round(y / heightIndex) 
       x = Math.round(x / widthIndex)
 
-      y = y < 50 ? y - (size / 2) : y + (size / 2)
-      x = 100 - (x < 50 ? x - (size / 2) : x + (size / 2))
+      // y = y < 50 ? y - (size / 2) : y + (size / 2)
+      // x = 100 - (x < 50 ? x - (size / 2) : x + (size / 2))
 
       x = Math.min(Math.max(x, 0), 100)
       y = Math.min(Math.max(y, 0), 100)
