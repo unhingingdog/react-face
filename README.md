@@ -5,6 +5,9 @@ A component which detects faces using the user media camera API, and injects fac
 Run the following command: 
 `npm install react-face`
 
+## Demo
+See it in action at https://react-face-demo.surge.sh/ (https://github.com/unhingingdog/react-face-example).
+
 ## How to use
 Use a function as a child to FaceDetector to pass data through to your component. 
 
