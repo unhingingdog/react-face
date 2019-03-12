@@ -1,6 +1,6 @@
 {
   "name": "react-face",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "author": "Hamish Gilkison <hamish@h12n.nz>",
   "main": "dist/index.js",
   "module": "dist/index.js",
