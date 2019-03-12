@@ -7,9 +7,7 @@ Run the following command:
 
 ## How to use
 Place your app or component to receive face data as a child to the FaceDetector component.     
-`<FaceDetector>
-    {facesData => <YourComponent facesData={facesData} />}
-</FaceDetector>`
+`<FaceDetector>{facesData => <YourComponent facesData={facesData} />}<FaceDetector>`
 
 
 ## How it works
