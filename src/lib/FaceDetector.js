@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
-import * as pico from './pico'
-import calculateFaceSizeScale from './calculateFaceSizeScale'
+import * as pico from '../pico'
+import calculateFaceSizeScale from '../calculateFaceSizeScale'
 
 export default class FaceDetector extends Component {
   constructor(props) {
