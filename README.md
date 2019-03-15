@@ -15,7 +15,7 @@ Use a function as a child to FaceDetector to pass data through to your component
 
 The data is an array of information about each face detected. These each contain the location (x & y value of the centre of the face as a value between 0 and 100, with the x value flipped), size, and detection strength for each face.
 
-To disable detection, set active to false:
+To disable detection, set active to false.
 
 `<FaceDetector active="false">`
 
