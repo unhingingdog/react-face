@@ -57,9 +57,7 @@ function (_Component) {
             strength = faceData.strength;
         size = Math.round(size / widthIndex);
         y = Math.round(y / heightIndex);
-        x = 100 - Math.round(x / widthIndex); // y = y < 50 ? y - (size / 2) : y + (size / 2)
-        // x = 100 - (x < 50 ? x - (size / 2) : x + (size / 2))
-
+        x = 100 - Math.round(x / widthIndex);
         x = Math.min(Math.max(x, 0), 100);
         y = Math.min(Math.max(y, 0), 100);
         strength = Math.round(strength);
@@ -216,7 +214,6 @@ function (_Component) {
     _this.carryOverData = null;
     _this.state = {
       currentCanvasSizeIndex: 100,
-      detectionActive: true,
       facesData: {},
       faceScale: 1,
       first: null,
@@ -254,7 +251,7 @@ function (_Component) {
                 });
                 pico.picoInit();
 
-                if (this.state.detectionActive) {
+                if (this.props.active) {
                   this.newWorkQueue();
                   this.detectionLoop();
                 }
@@ -276,7 +273,7 @@ function (_Component) {
   }, {
     key: "componentDidUpdate",
     value: function componentDidUpdate() {
-      if (this.state.detectionActive && !this.workQueue.length) {
+      if (this.props.active && !this.workQueue.length) {
         this.newWorkQueue();
       }
     }
@@ -299,7 +296,7 @@ function (_Component) {
           return _this2.canvas = _ref;
         },
         style: {
-          display: 'none'
+          display: this.props.showCanvas ? 'inline' : 'none'
         }
       }), this.props.children && this.props.children(relativeFacesData));
     }
@@ -345,3 +342,7 @@ function (_Component) {
 }(Component);
 
 export { FaceDetector as default };
+FaceDetector.defaultProps = {
+  active: true,
+  showCanvas: false
+};

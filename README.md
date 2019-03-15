@@ -15,6 +15,13 @@ Use a function as a child to FaceDetector to pass data through to your component
 
 The data is an array of information about each face detected. These each contain the location (x & y value of the centre of the face as a value between 0 and 100, with the x value flipped), size, and detection strength for each face.
 
+To disable detection, set active to false:
+
+`<FaceDetector active="false">`
+
+To show the canvas (with face detections shown) set the showCanvas prop to "true".
+
+`<FaceDetector showCanvas="true">`
 
 ## How it works
 The face detection algorithm used is a modification of the Viola-Jones method called Pico, created by by Markuš et al. (2013) (https://github.com/nenadmarkus/pico). This component uses a JavaScript implementation called Pico.js by tehnokv (https://github.com/tehnokv/picojs).
