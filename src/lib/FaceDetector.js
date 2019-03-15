@@ -1,6 +1,5 @@
 import React, { Component } from 'react';
-import * as pico from '../pico'
-import calculateFaceSizeScale from '../calculateFaceSizeScale'
+import * as pico from './pico'
 
 export default class FaceDetector extends Component {
   constructor(props) {
@@ -17,7 +16,6 @@ export default class FaceDetector extends Component {
 
     this.state = { 
       currentCanvasSizeIndex: 100,
-      detectionActive: true,
       facesData: {},
       faceScale: 1, 
       first: null,
@@ -38,14 +36,14 @@ export default class FaceDetector extends Component {
 		
     pico.picoInit()
 
-    if (this.state.detectionActive) {
+    if (this.props.active) {
       this.newWorkQueue()
       this.detectionLoop()
     }
   }
 
   componentDidUpdate() {
-    if (this.state.detectionActive && !this.workQueue.length) {
+    if (this.props.active && !this.workQueue.length) {
       this.newWorkQueue()
     }
   }
@@ -58,7 +56,10 @@ export default class FaceDetector extends Component {
 
     return (
       <React.Fragment>
-        <canvas ref={ref => this.canvas = ref} style={{ display: 'none' }} />
+        <canvas 
+          ref={ref => this.canvas = ref} 
+          style={{ display: this.props.showCanvas ? 'inline' : 'none' }} 
+        />
         {this.props.children && this.props.children(relativeFacesData)}
       </React.Fragment>
     )
@@ -138,10 +139,7 @@ export default class FaceDetector extends Component {
 
       size = Math.round(size / widthIndex)
       y = Math.round(y / heightIndex) 
-      x = Math.round(x / widthIndex)
-
-      // y = y < 50 ? y - (size / 2) : y + (size / 2)
-      // x = 100 - (x < 50 ? x - (size / 2) : x + (size / 2))
+      x = 100 - Math.round(x / widthIndex)
 
       x = Math.min(Math.max(x, 0), 100)
       y = Math.min(Math.max(y, 0), 100)
@@ -150,6 +148,36 @@ export default class FaceDetector extends Component {
       return {x, y, size, strength}
     } 
   }
+
+  calculateFaceSizeScale = detectionStrength => {
+    const s = detectionStrength
+
+    if (s > 1000) {
+        return 1.2
+    } else if (s < 1000 && s > 900) {
+        return 1.1
+    } else if (s < 900 && s > 800) {
+        return 1.075
+    } else if (s < 800 && s > 700) {
+        return 1.05
+    } else if (s < 700 && s > 600) {
+        return 1.03
+    } else if (s < 600 && s > 500) {
+        return 1.01
+    } else if (s < 500 && s > 400) {
+        return 1.005
+    } else if (s < 400 && s > 300) {
+        return 0.995 
+    } else if (s < 300 && s > 200) {
+        return 0.99 
+    } else if (s < 200 && s > 100) {
+        return 0.95 
+    } else if (s < 100 && s > 50) {
+        return 0.9 
+    } else {
+        return 0.8
+    } 
+}
 
   updatePerformanceQueue = (detectionStart, detectionEnd, queue) => {
     queue.push(detectionEnd - detectionStart)
@@ -216,7 +244,7 @@ export default class FaceDetector extends Component {
       let newNoFaceFrames = noFaceFrames
       let newHighFaceFrames = highFaceFrames
       const [bestDetection] = bestDetectionData
-      let newFaceScale = Math.max(calculateFaceSizeScale(bestDetection), 0.01) 
+      let newFaceScale = Math.max(this.calculateFaceSizeScale(bestDetection), 0.01) 
         || faceScale
 
       if (bestDetection > 250) {
@@ -252,4 +280,9 @@ export default class FaceDetector extends Component {
         newHighFaceFrames
       }
   }
+}
+
+FaceDetector.defaultProps = { 
+  active: true,
+  showCanvas: false 
 }

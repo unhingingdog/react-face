@@ -7,8 +7,7 @@ import _possibleConstructorReturn from "@babel/runtime/helpers/esm/possibleConst
 import _getPrototypeOf from "@babel/runtime/helpers/esm/getPrototypeOf";
 import _inherits from "@babel/runtime/helpers/esm/inherits";
 import React, { Component } from 'react';
-import * as pico from '../pico';
-import calculateFaceSizeScale from '../calculateFaceSizeScale';
+import * as pico from './pico';
 
 var FaceDetector =
 /*#__PURE__*/
@@ -58,7 +57,7 @@ function (_Component) {
             strength = faceData.strength;
         size = Math.round(size / widthIndex);
         y = Math.round(y / heightIndex);
-        x = Math.round(x / widthIndex); // y = y < 50 ? y - (size / 2) : y + (size / 2)
+        x = 100 - Math.round(x / widthIndex); // y = y < 50 ? y - (size / 2) : y + (size / 2)
         // x = 100 - (x < 50 ? x - (size / 2) : x + (size / 2))
 
         x = Math.min(Math.max(x, 0), 100);
@@ -70,6 +69,36 @@ function (_Component) {
           size: size,
           strength: strength
         };
+      }
+    };
+
+    _this.calculateFaceSizeScale = function (detectionStrength) {
+      var s = detectionStrength;
+
+      if (s > 1000) {
+        return 1.2;
+      } else if (s < 1000 && s > 900) {
+        return 1.1;
+      } else if (s < 900 && s > 800) {
+        return 1.075;
+      } else if (s < 800 && s > 700) {
+        return 1.05;
+      } else if (s < 700 && s > 600) {
+        return 1.03;
+      } else if (s < 600 && s > 500) {
+        return 1.01;
+      } else if (s < 500 && s > 400) {
+        return 1.005;
+      } else if (s < 400 && s > 300) {
+        return 0.995;
+      } else if (s < 300 && s > 200) {
+        return 0.99;
+      } else if (s < 200 && s > 100) {
+        return 0.95;
+      } else if (s < 100 && s > 50) {
+        return 0.9;
+      } else {
+        return 0.8;
       }
     };
 
@@ -145,7 +174,7 @@ function (_Component) {
           _bestDetectionData2 = _slicedToArray(_bestDetectionData, 1),
           bestDetection = _bestDetectionData2[0];
 
-      var newFaceScale = Math.max(calculateFaceSizeScale(bestDetection), 0.01) || faceScale;
+      var newFaceScale = Math.max(_this.calculateFaceSizeScale(bestDetection), 0.01) || faceScale;
 
       if (bestDetection > 250) {
         if (newHighFaceFrames < 1) {
@@ -238,9 +267,11 @@ function (_Component) {
         }, _callee, this);
       }));
 
-      return function componentDidMount() {
+      function componentDidMount() {
         return _componentDidMount.apply(this, arguments);
-      };
+      }
+
+      return componentDidMount;
     }()
   }, {
     key: "componentDidUpdate",
